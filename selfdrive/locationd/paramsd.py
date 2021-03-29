@@ -88,10 +88,12 @@ def main(sm=None, pm=None):
       cloudlog.info("Parameter learner found parameters for wrong car.")
       params = None
 
-  if (params is not None) and not all((
+  if (params is not None) and ( 'angleOffsetAverage' in params and 'steerRatio' in params )and not all((
       abs(params['angleOffsetAverage']) < 10.0,
       min_sr <= params['steerRatio'] <= max_sr)):
     cloudlog.info(f"Invalid starting values found {params}")
+    params = None
+  else : ##prevert crashes
     params = None
 
   if params is None:
