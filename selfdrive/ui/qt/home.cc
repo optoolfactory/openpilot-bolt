@@ -21,7 +21,7 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
 
   sidebar = new Sidebar(this);
   layout->addWidget(sidebar);
-  QObject::connect(this, &HomeWindow::update, sidebar, &Sidebar::update);
+  QObject::connect(this, &HomeWindow::update, sidebar, &Sidebar::updateState);
   QObject::connect(sidebar, &Sidebar::openSettings, this, &HomeWindow::openSettings);
 
   slayout = new QStackedLayout();
@@ -29,12 +29,19 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
 
   onroad = new OnroadWindow(this);
   slayout->addWidget(onroad);
+
   QObject::connect(this, &HomeWindow::update, onroad, &OnroadWindow::update);
-  QObject::connect(this, &HomeWindow::offroadTransitionSignal, onroad, &OnroadWindow::offroadTransition);
+  QObject::connect(this, &HomeWindow::offroadTransitionSignal, onroad, &OnroadWindow::offroadTransitionSignal);
 
   home = new OffroadHome();
   slayout->addWidget(home);
   QObject::connect(this, &HomeWindow::openSettings, home, &OffroadHome::refresh);
+
+  driver_view = new DriverViewWindow(this);
+  connect(driver_view, &DriverViewWindow::done, [=] {
+    showDriverView(false);
+  });
+  slayout->addWidget(driver_view);
 
   setLayout(layout);
 }
@@ -49,17 +56,31 @@ void HomeWindow::offroadTransition(bool offroad) {
   emit offroadTransitionSignal(offroad);
 }
 
-void HomeWindow::mousePressEvent(QMouseEvent* e) {
-  // TODO: make a nice driver view widget
-  if (QUIState::ui_state.scene.driver_view) {
-    Params().putBool("IsDriverViewEnabled", false);
-    QUIState::ui_state.scene.driver_view = false;
-    return;
+void HomeWindow::showDriverView(bool show) {
+  if (show) {
+    emit closeSettings();
+    slayout->setCurrentWidget(driver_view);
+  } else {
+    slayout->setCurrentWidget(home);
   }
+  sidebar->setVisible(show == false);
+}
 
+void HomeWindow::mousePressEvent(QMouseEvent* e) {
   // Handle sidebar collapsing
   if (onroad->isVisible() && (!sidebar->isVisible() || e->x() > sidebar->width())) {
-    sidebar->setVisible(!sidebar->isVisible());
+
+    // TODO: Handle this without exposing pointer to map widget
+    // Hide map first if visible, then hide sidebar
+    if (onroad->map != nullptr && onroad->map->isVisible()){
+      onroad->map->setVisible(false);
+    } else if (!sidebar->isVisible()) {
+      sidebar->setVisible(true);
+    } else {
+      sidebar->setVisible(false);
+
+      if (onroad->map != nullptr) onroad->map->setVisible(true);
+    }
   }
 }
 
@@ -81,7 +102,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   QObject::connect(alert_notification, &QPushButton::released, this, &OffroadHome::openAlerts);
   header_layout->addWidget(alert_notification, 0, Qt::AlignHCenter | Qt::AlignRight);
 
-  std::string brand = Params().getBool("Passive") ? "dashcam" : "openpilot";
+  std::string brand = Params().getBool("Passive") ? "대시캠" : "오픈파일럿";
   QLabel* version = new QLabel(QString::fromStdString(brand + " v" + Params().get("Version")));
   version->setStyleSheet(R"(font-size: 55px;)");
   header_layout->addWidget(version, 0, Qt::AlignHCenter | Qt::AlignRight);
@@ -148,7 +169,7 @@ void OffroadHome::refresh() {
     return;
   }
 
-  date->setText(QDateTime::currentDateTime().toString("dddd, MMMM d"));
+  date->setText(QDateTime::currentDateTime().toString("yyyy년 M월 d일"));
 
   // update alerts
 
@@ -160,10 +181,10 @@ void OffroadHome::refresh() {
   }
 
   if (alerts_widget->updateAvailable) {
-    alert_notification->setText("UPDATE");
+    alert_notification->setText("업데이트");
   } else {
     int alerts = alerts_widget->alertCount;
-    alert_notification->setText(QString::number(alerts) + " ALERT" + (alerts == 1 ? "" : "S"));
+    alert_notification->setText(QString::number(alerts) + " 경고" + (alerts == 1 ? "" : "S"));
   }
 
   if (!alert_notification->isVisible() && !first_refresh) {

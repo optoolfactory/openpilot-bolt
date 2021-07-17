@@ -28,7 +28,7 @@ signals:
 
 protected:
   AbstractControl(const QString &title, const QString &desc = "", const QString &icon = "", QWidget *parent = nullptr);
-  void hideEvent(QHideEvent *e);
+  void hideEvent(QHideEvent *e) override;
 
   QSize minimumSizeHint() const override {
     QSize size = QFrame::minimumSizeHint();
@@ -144,14 +144,18 @@ class PrebuiltParamControl : public ParamControl {
  {
 #ifdef QCOM
     if (params.getBool(param.toStdString().c_str())) {
+       printf("#147 touch\n");
       HardwareEon::touch_prebuilt();
     } else {
+    printf("#150 rm\n");
       HardwareEon::rm_prebuilt();
     }
     QObject::connect(this, &ToggleControl::toggleFlipped, [=](bool state) {
         if (state ) {
+        printf("#155 touch\n");
           HardwareEon::touch_prebuilt();
         } else {
+        printf("#158 rm\n");
           HardwareEon::rm_prebuilt();
         }
     });
