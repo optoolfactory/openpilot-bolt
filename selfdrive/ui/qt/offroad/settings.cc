@@ -1,17 +1,23 @@
-#include "settings.h"
+#include "selfdrive/ui/qt/offroad/settings.h"
 
 #include <cassert>
 #include <string>
 
+#include <QDebug>
+
 #ifndef QCOM
 #include "selfdrive/ui/qt/offroad/networking.h"
 #endif
+
+#ifdef ENABLE_MAPS
+#include "selfdrive/ui/qt/maps/map_settings.h"
+#endif
+
 #include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"
 #include "selfdrive/hardware/hw.h"
 #include "selfdrive/ui/qt/widgets/controls.h"
 #include "selfdrive/ui/qt/widgets/input.h"
-#include "selfdrive/ui/qt/widgets/offroad_alerts.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 #include "selfdrive/ui/qt/widgets/ssh_keys.h"
 #include "selfdrive/ui/qt/widgets/toggle.h"
@@ -19,7 +25,7 @@
 #include "selfdrive/ui/qt/util.h"
 
 TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
-  QVBoxLayout *toggles_list = new QVBoxLayout();
+  QVBoxLayout *main_layout = new QVBoxLayout(this);
 
   QList<ParamControl*> toggles;
 
@@ -67,46 +73,35 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_road.png",
                                   this));
 
-  if (Hardware::TICI()) {
-    toggles.append(new ParamControl("EnableWideCamera",
-                                    "Enable use of Wide Angle Camera",
-                                    "Use wide angle camera for driving and ui.",
-                                    "../assets/offroad/icon_openpilot.png",
-                                    this));
-    QObject::connect(toggles.back(), &ToggleControl::toggleFlipped, [=](bool state) {
-      Params().remove("CalibrationParams");
-    });
-
-    toggles.append(new ParamControl("EnableLteOnroad",
-                                    "Enable LTE while onroad",
-                                    "",
-                                    "../assets/offroad/icon_network.png",
-                                    this));
-  }
+#ifdef ENABLE_MAPS
+  toggles.append(new ParamControl("NavSettingTime24h",
+                                  "Show ETA in 24h format",
+                                  "Use 24h format instead of am/pm",
+                                  "../assets/offroad/icon_metric.png",
+                                  this));
+#endif
 
   bool record_lock = Params().getBool("RecordFrontLock");
   record_toggle->setEnabled(!record_lock);
 
-  for(ParamControl *toggle : toggles){
-    if(toggles_list->count() != 0){
-      toggles_list->addWidget(horizontal_line());
+  for(ParamControl *toggle : toggles) {
+    if(main_layout->count() != 0) {
+      main_layout->addWidget(horizontal_line());
     }
-    toggles_list->addWidget(toggle);
+    main_layout->addWidget(toggle);
   }
-
-  setLayout(toggles_list);
 }
 
 DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
-  QVBoxLayout *device_layout = new QVBoxLayout;
+  QVBoxLayout *main_layout = new QVBoxLayout(this);
   Params params = Params();
 
   QString dongle = QString::fromStdString(params.get("DongleId", false));
-  device_layout->addWidget(new LabelControl("동글 아이디", dongle));
-  device_layout->addWidget(horizontal_line());
+  main_layout->addWidget(new LabelControl("동글 아이디", dongle));
+  main_layout->addWidget(horizontal_line());
 
   QString serial = QString::fromStdString(params.get("HardwareSerial", false));
-  device_layout->addWidget(new LabelControl("시리얼", serial));
+  main_layout->addWidget(new LabelControl("시리얼", serial));
 
   QHBoxLayout *reset_layout = new QHBoxLayout();
   reset_layout->setSpacing(30);
@@ -114,27 +109,28 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   // reset calibration button
   QPushButton *reset_calib_btn = new QPushButton("캘리브레이션 리셋");
   reset_layout->addWidget(reset_calib_btn);
-  QObject::connect(reset_calib_btn, &QPushButton::released, [=]() {
-      if (ConfirmationDialog::confirm("캘리브레이션을 다시 하시겠습니까?")) {
+  QObject::connect(reset_calib_btn, &QPushButton::clicked, [=]() {
+      if (ConfirmationDialog::confirm("캘리브레이션을 다시 하시겠습니까?",this)) {
           Params().remove("CalibrationParams");
       }
   });
 
-  device_layout->addWidget(horizontal_line());
-  device_layout->addLayout(reset_layout);
-  // offroad-only buttons
-  QList<ButtonControl*> offroad_btns;
+  main_layout->addWidget(horizontal_line());
+  main_layout->addLayout(reset_layout);
 
-  offroad_btns.append(new ButtonControl("운전자 영상", "미리보기",
-                                        "운전자 영상이 제대로 작동하는지 확인을 합니다. 차량을 끄고 사용하도록 하십시오.",
-                                        [=]() { emit showDriverView(); }, "", this));
+  // offroad-only buttons
+
+  auto dcamBtn = new ButtonControl("운전자 영상", "미리보기",
+                                        "운전자 영상이 제대로 작동하는지 확인을 합니다. 차량을 끄고 사용하도록 하십시오.");
+  connect(dcamBtn, &ButtonControl::clicked, [=]() { emit showDriverView(); });
 
   QString resetCalibDesc = "오픈파일럿은 좌우로 4° 위아래로 5° 를 보정합니다. 그 이상의 경우 보정이 필요합니다.";
-  ButtonControl *resetCalibBtn = new ButtonControl("캘리브레이션 리셋", "리셋", resetCalibDesc, [=]() {
+  auto resetCalibBtn = new ButtonControl("캘리브레이션 리셋", "리셋", resetCalibDesc);
+  connect(resetCalibBtn, &ButtonControl::clicked, [=]() {
     if (ConfirmationDialog::confirm("캘리브레이션을 리셋하시겠습니까?", this)) {
       Params().remove("CalibrationParams");
     }
-  }, "", this);
+  });
   connect(resetCalibBtn, &ButtonControl::showDescription, [=]() {
     QString desc = resetCalibDesc;
     std::string calib_bytes = Params().get("CalibrationParams");
@@ -156,27 +152,31 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
     }
     resetCalibBtn->setDescription(desc);
   });
-  offroad_btns.append(resetCalibBtn);
 
-  offroad_btns.append(new ButtonControl("트레이닝 가이드", "가이드 보기",
-                                        "오픈파일럿의 제한적 상황과 규정을 확인", [=]() {
-    if (ConfirmationDialog::confirm("트레이닝 가이드를 확인하시겠습니까?", this)) {
-      Params().remove("CompletedTrainingVersion");
-      emit reviewTrainingGuide();
-    }
-  }, "", this));
+  ButtonControl *retrainingBtn = nullptr;
+  if (!params.getBool("Passive")) {
+    retrainingBtn = new ButtonControl("트레이닝 가이드", "가이드 보기", "오픈파일럿의 제한적 상황과 규정을 확인");
+    connect(retrainingBtn, &ButtonControl::clicked, [=]() {
+      if (ConfirmationDialog::confirm("트레이닝 가이드를 확인하시겠습니까?", this)) {
+        Params().remove("CompletedTrainingVersion");
+        emit reviewTrainingGuide();
+      }
+    });
+  }
 
-  QString brand = params.getBool("Passive") ? "대시캠" : "";
-  offroad_btns.append(new ButtonControl("제거 " + brand, "오픈파일럿 제거", "", [=]() {
+  auto uninstallBtn = new ButtonControl("Uninstall " + getBrand(), "UNINSTALL");
+  connect(uninstallBtn, &ButtonControl::clicked, [=]() {
     if (ConfirmationDialog::confirm("오픈파일럿을 제거하시겠습니까?", this)) {
       Params().putBool("DoUninstall", true);
     }
-  }, "", this));
+  });
 
-  for(auto &btn : offroad_btns){
-    device_layout->addWidget(horizontal_line());
-    QObject::connect(parent, SIGNAL(offroadTransition(bool)), btn, SLOT(setEnabled(bool)));
-    device_layout->addWidget(btn);
+  for (auto btn : {dcamBtn, resetCalibBtn, retrainingBtn, uninstallBtn}) {
+    if (btn) {
+      main_layout->addWidget(horizontal_line());
+      connect(parent, SIGNAL(offroadTransition(bool)), btn, SLOT(setEnabled(bool)));
+      main_layout->addWidget(btn);
+    }
   }
 
   // power buttons
@@ -184,17 +184,17 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   power_layout->setSpacing(30);
 
   QPushButton *reboot_btn = new QPushButton("재부팅");
+  reboot_btn->setStyleSheet("height: 120px;border-radius: 15px;background-color: #393939;");
   power_layout->addWidget(reboot_btn);
-  QObject::connect(reboot_btn, &QPushButton::released, [=]() {
+  QObject::connect(reboot_btn, &QPushButton::clicked, [=]() {
     if (ConfirmationDialog::confirm("단순 재부팅합니다.", this)) {
       Hardware::reboot();
     }
   });
-
   QPushButton *reboot_rmprebuilt_btn = new QPushButton("빌드부팅");
   power_layout->addWidget(reboot_rmprebuilt_btn);
-  QObject::connect(reboot_rmprebuilt_btn, &QPushButton::released, [=]() {
-      if (ConfirmationDialog::confirm("prebuilt 파일을 임시 삭제하고 부팅합니다.")) {
+  QObject::connect(reboot_rmprebuilt_btn, &QPushButton::clicked, [=]() {
+      if (ConfirmationDialog::confirm("prebuilt 파일을 임시 삭제하고 부팅합니다.",this)) {
         Hardware::update_reboot();
       }
   });
@@ -202,47 +202,59 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 #ifdef QCOM
   QPushButton *cleanbuild_btn = new QPushButton("클린 빌드부팅");
   power_layout->addWidget(cleanbuild_btn);
-  QObject::connect(cleanbuild_btn, &QPushButton::released, [=]() {
-      if (ConfirmationDialog::confirm("완전에 가까운재설치를 합니다. 약 30분 소요됩니다.")) {
+  QObject::connect(cleanbuild_btn, &QPushButton::clicked, [=]() {
+      if (ConfirmationDialog::confirm("완전에 가까운재설치를 합니다. 약 30분 소요됩니다.",this)) {
         Hardware::clean_build_reboot();
       }
   });
 #endif
 
-  QPushButton *poweroff_btn = new QPushButton("끄기");
-  poweroff_btn->setStyleSheet("background-color: #E22C2C;");
+  QPushButton *poweroff_btn = new QPushButton("전원종료");
+  poweroff_btn->setStyleSheet("height: 120px;border-radius: 15px;background-color: #E22C2C;");
   power_layout->addWidget(poweroff_btn);
-  QObject::connect(poweroff_btn, &QPushButton::released, [=]() {
+  QObject::connect(poweroff_btn, &QPushButton::clicked, [=]() {
     if (ConfirmationDialog::confirm("전원을 끄시겠습니까?", this)) {
       Hardware::poweroff();
     }
   });
 
-  device_layout->addLayout(power_layout);
-
-  setLayout(device_layout);
-  setStyleSheet(R"(
-    QPushButton {
-      padding: 0;
-      height: 120px;
-      border-radius: 15px;
-      background-color: #393939;
-    }
-  )");
+  main_layout->addLayout(power_layout);
 }
 
-SoftwarePanel::SoftwarePanel(QWidget* parent) : QFrame(parent) {
+SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
+  gitBranchLbl = new LabelControl("Git Branch");
+  gitCommitLbl = new LabelControl("Git Commit");
+  osVersionLbl = new LabelControl("OS Version");
+  versionLbl = new LabelControl("Version", "", QString::fromStdString(params.get("ReleaseNotes")).trimmed());
+  lastUpdateLbl = new LabelControl("Last Update Check", "", "The last time openpilot successfully checked for an update. The updater only runs while the car is off.");
+  updateBtn = new ButtonControl("Check for Update", "");
+  connect(updateBtn, &ButtonControl::clicked, [=]() {
+    if (params.getBool("IsOffroad")) {
+      const QString paramsPath = QString::fromStdString(params.getParamsPath());
+      fs_watch->addPath(paramsPath + "/d/LastUpdateTime");
+      fs_watch->addPath(paramsPath + "/d/UpdateFailedCount");
+      updateBtn->setText("CHECKING");
+      updateBtn->setEnabled(false);
+    }
+    std::system("pkill -1 -f selfdrive.updated");
+  });
+
   QVBoxLayout *main_layout = new QVBoxLayout(this);
-  setLayout(main_layout);
-  setStyleSheet(R"(QLabel {font-size: 50px;})");
+  QWidget *widgets[] = {versionLbl, lastUpdateLbl, updateBtn, gitBranchLbl, gitCommitLbl, osVersionLbl};
+  for (int i = 0; i < std::size(widgets); ++i) {
+    main_layout->addWidget(widgets[i]);
+    if (i < std::size(widgets) - 1) {
+      main_layout->addWidget(horizontal_line());
+    }
+  }
 
   fs_watch = new QFileSystemWatcher(this);
   QObject::connect(fs_watch, &QFileSystemWatcher::fileChanged, [=](const QString path) {
-    int update_failed_count = Params().get<int>("UpdateFailedCount").value_or(0);
+    int update_failed_count = params.get<int>("UpdateFailedCount").value_or(0);
     if (path.contains("UpdateFailedCount") && update_failed_count > 0) {
-      lastUpdateTimeLbl->setText("failed to fetch update");
-      updateButton->setText("CHECK");
-      updateButton->setEnabled(true);
+      lastUpdateLbl->setText("failed to fetch update");
+      updateBtn->setText("CHECK");
+      updateBtn->setEnabled(true);
     } else if (path.contains("LastUpdateTime")) {
       updateLabels();
     }
@@ -254,80 +266,36 @@ void SoftwarePanel::showEvent(QShowEvent *event) {
 }
 
 void SoftwarePanel::updateLabels() {
-  Params params = Params();
-  std::string brand = params.getBool("Passive") ? "dashcam" : "openpilot";
-  QList<QPair<QString, std::string>> dev_params = {
-    {"Git Branch", params.get("GitBranch")},
-    {"Git Commit", params.get("GitCommit").substr(0, 10)},
-    {"Panda Firmware", params.get("PandaFirmwareHex")},
-    {"OS Version", Hardware::get_os_version()},
-  };
-
-  QString version = QString::fromStdString(brand + " v" + params.get("Version").substr(0, 14)).trimmed();
-  QString lastUpdateTime = "";
-
-  std::string last_update_param = params.get("LastUpdateTime");
-  if (!last_update_param.empty()){
-    QDateTime lastUpdateDate = QDateTime::fromString(QString::fromStdString(last_update_param + "Z"), Qt::ISODate);
-    lastUpdateTime = timeAgo(lastUpdateDate);
+  QString lastUpdate = "";
+  auto tm = params.get("LastUpdateTime");
+  if (!tm.empty()) {
+    lastUpdate = timeAgo(QDateTime::fromString(QString::fromStdString(tm + "Z"), Qt::ISODate));
   }
 
-  if (labels.size() < dev_params.size()) {
-    versionLbl = new LabelControl("Version", version, QString::fromStdString(params.get("ReleaseNotes")).trimmed());
-    layout()->addWidget(versionLbl);
-    layout()->addWidget(horizontal_line());
-
-    lastUpdateTimeLbl = new LabelControl("Last Update Check", lastUpdateTime, "The last time openpilot successfully checked for an update. The updater only runs while the car is off.");
-    layout()->addWidget(lastUpdateTimeLbl);
-    layout()->addWidget(horizontal_line());
-
-    updateButton = new ButtonControl("Check for Update", "CHECK", "", [=]() {
-      Params params = Params();
-      if (params.getBool("IsOffroad")) {
-        fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/LastUpdateTime");
-        fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/UpdateFailedCount");
-        updateButton->setText("CHECKING");
-        updateButton->setEnabled(false);
-      }
-      std::system("pkill -1 -f selfdrive.updated");
-    }, "", this);
-    layout()->addWidget(updateButton);
-    layout()->addWidget(horizontal_line());
-  } else {
-    versionLbl->setText(version);
-    lastUpdateTimeLbl->setText(lastUpdateTime);
-    updateButton->setText("CHECK");
-    updateButton->setEnabled(true);
-  }
-
-  for (int i = 0; i < dev_params.size(); i++) {
-    const auto &[name, value] = dev_params[i];
-    QString val = QString::fromStdString(value).trimmed();
-    if (labels.size() > i) {
-      labels[i]->setText(val);
-    } else {
-      labels.push_back(new LabelControl(name, val));
-      layout()->addWidget(labels[i]);
-      if (i < (dev_params.size() - 1)) {
-        layout()->addWidget(horizontal_line());
-      }
-    }
-  }
+  versionLbl->setText(getBrandVersion());
+  lastUpdateLbl->setText(lastUpdate);
+  updateBtn->setText("CHECK");
+  updateBtn->setEnabled(true);
+  gitBranchLbl->setText(QString::fromStdString(params.get("GitBranch")));
+  gitCommitLbl->setText(QString::fromStdString(params.get("GitCommit")).left(10));
+  osVersionLbl->setText(QString::fromStdString(Hardware::get_os_version()).trimmed());
 }
-
 
 QWidget * network_panel(QWidget * parent) {
 #ifdef QCOM
-  QVBoxLayout *layout = new QVBoxLayout;
+  QWidget *w = new QWidget(parent);
+  QVBoxLayout *layout = new QVBoxLayout(w);
   layout->setSpacing(30);
 
   // wifi + tethering buttons
-  layout->addWidget(new ButtonControl("네트워크 설정열기", "열기", "",
-                                      [=]() { HardwareEon::launch_wifi(); }));
+  auto wifiBtn = new ButtonControl("WiFi Settings", "OPEN");
+  QObject::connect(wifiBtn, &ButtonControl::clicked, [=]() { HardwareEon::launch_wifi(); });
+  layout->addWidget(wifiBtn);
   layout->addWidget(horizontal_line());
 
-  layout->addWidget(new ButtonControl("테더링 설정열기", "열기", "",
-                                      [=]() { HardwareEon::launch_tethering(); }));
+  auto tetheringBtn = new ButtonControl("Tethering Settings", "OPEN");
+  QObject::connect(tetheringBtn, &ButtonControl::clicked, [=]() { HardwareEon::launch_tethering(); });
+  layout->addWidget(tetheringBtn);
   layout->addWidget(horizontal_line());
 
   // SSH key management
@@ -336,17 +304,23 @@ QWidget * network_panel(QWidget * parent) {
   layout->addWidget(new SshControl());
 
   layout->addStretch(1);
-
-  QWidget *w = new QWidget;
-  w->setLayout(layout);
 #else
   Networking *w = new Networking(parent);
 #endif
   return w;
 }
 
-QWidget * community_panel() {
-  QVBoxLayout *toggles_list = new QVBoxLayout();
+void SettingsWindow::showEvent(QShowEvent *event) {
+  panel_widget->setCurrentIndex(0);
+  nav_btns->buttons()[0]->setChecked(true);
+}
+
+
+QWidget * community_panel(QWidget * parent) {
+  QWidget *w = new QWidget(parent);
+  QVBoxLayout *toggles_list = new QVBoxLayout(w);
+  toggles_list->setSpacing(30);
+
   toggles_list->addWidget(new ParamControl("AutoLaneChangeEnabled",
                                             "자동 차선변경 사용",
                                             "자동 차선 변경. 사용에 주의 하십시오",
@@ -370,15 +344,12 @@ QWidget * community_panel() {
 }
 
 
-void SettingsWindow::showEvent(QShowEvent *event) {
-  if (layout()) {
-    panel_widget->setCurrentIndex(0);
-    nav_btns->buttons()[0]->setChecked(true);
-    return;
-  }
+
+SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
   // setup two main layouts
-  QVBoxLayout *sidebar_layout = new QVBoxLayout();
+  sidebar_widget = new QWidget;
+  QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
   sidebar_layout->setMargin(0);
   panel_widget = new QStackedWidget();
   panel_widget->setStyleSheet(R"(
@@ -387,18 +358,20 @@ void SettingsWindow::showEvent(QShowEvent *event) {
   )");
 
   // close button
-  QPushButton *close_btn = new QPushButton("X");
+  QPushButton *close_btn = new QPushButton("×");
   close_btn->setStyleSheet(R"(
-    font-size: 90px;
+    font-size: 140px;
+    padding-bottom: 20px;
     font-weight: bold;
     border 1px grey solid;
     border-radius: 100px;
     background-color: #292929;
+    font-weight: 400;
   )");
   close_btn->setFixedSize(200, 200);
   sidebar_layout->addSpacing(45);
   sidebar_layout->addWidget(close_btn, 0, Qt::AlignCenter);
-  QObject::connect(close_btn, &QPushButton::released, this, &SettingsWindow::closeSettings);
+  QObject::connect(close_btn, &QPushButton::clicked, this, &SettingsWindow::closeSettings);
 
   // setup panels
   DevicePanel *device = new DevicePanel(this);
@@ -409,55 +382,62 @@ void SettingsWindow::showEvent(QShowEvent *event) {
     {"장치", device},
     {"네트워크", network_panel(this)},
     {"토글메뉴", new TogglesPanel(this)},
-    {"개발자", new SoftwarePanel()},
-    {"커뮤니티", community_panel()},
+    {"개발자", new SoftwarePanel(this)},
+    {"커뮤니티", community_panel(this)},
   };
 
-  sidebar_layout->addSpacing(45);
+#ifdef ENABLE_MAPS
+  if (!Params().get("MapboxToken").empty()) {
+    auto map_panel = new MapPanel(this);
+    panels.push_back({"Navigation", map_panel});
+    QObject::connect(map_panel, &MapPanel::closeSettings, this, &SettingsWindow::closeSettings);
+  }
+#endif
+  const int padding = 35;
+
   nav_btns = new QButtonGroup();
   for (auto &[name, panel] : panels) {
     QPushButton *btn = new QPushButton(name);
     btn->setCheckable(true);
     btn->setChecked(nav_btns->buttons().size() == 0);
-    btn->setStyleSheet(R"(
+    btn->setStyleSheet(QString(R"(
       QPushButton {
         color: grey;
         border: none;
         background: none;
         font-size: 65px;
         font-weight: 500;
-        padding-top: 18px;
-        padding-bottom: 18px;
+        padding-top: %1px;
+        padding-bottom: %1px;
       }
       QPushButton:checked {
         color: white;
       }
-    )");
+    )").arg(padding));
 
     nav_btns->addButton(btn);
     sidebar_layout->addWidget(btn, 0, Qt::AlignRight);
 
-    panel->setContentsMargins(50, 25, 50, 25);
+    const int lr_margin = name != "Network" ? 50 : 0;  // Network panel handles its own margins
+    panel->setContentsMargins(lr_margin, 25, lr_margin, 25);
 
     ScrollView *panel_frame = new ScrollView(panel, this);
     panel_widget->addWidget(panel_frame);
 
-    QObject::connect(btn, &QPushButton::released, [=, w = panel_frame]() {
+    QObject::connect(btn, &QPushButton::clicked, [=, w = panel_frame]() {
+      btn->setChecked(true);
       panel_widget->setCurrentWidget(w);
     });
   }
   sidebar_layout->setContentsMargins(50, 50, 100, 50);
 
   // main settings layout, sidebar + main panel
-  QHBoxLayout *settings_layout = new QHBoxLayout();
+  QHBoxLayout *main_layout = new QHBoxLayout(this);
 
-  sidebar_widget = new QWidget;
-  sidebar_widget->setLayout(sidebar_layout);
   sidebar_widget->setFixedWidth(500);
-  settings_layout->addWidget(sidebar_widget);
-  settings_layout->addWidget(panel_widget);
+  main_layout->addWidget(sidebar_widget);
+  main_layout->addWidget(panel_widget);
 
-  setLayout(settings_layout);
   setStyleSheet(R"(
     * {
       color: white;
@@ -469,16 +449,8 @@ void SettingsWindow::showEvent(QShowEvent *event) {
   )");
 }
 
-void SettingsWindow::hideEvent(QHideEvent *event){
+void SettingsWindow::hideEvent(QHideEvent *event) {
 #ifdef QCOM
   HardwareEon::close_activities();
 #endif
-
-  // TODO: this should be handled by the Dialog classes
-  QList<QWidget*> children = findChildren<QWidget *>();
-  for(auto &w : children){
-    if(w->metaObject()->superClass()->className() == QString("QDialog")){
-      w->close();
-    }
-  }
 }

@@ -4,16 +4,28 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QVBoxLayout>
-#include <fstream>
-#include <cstdio>
-
-#include "selfdrive/hardware/hw.h"
 
 #include "selfdrive/common/params.h"
 #include "selfdrive/ui/qt/widgets/toggle.h"
 
+#include <fstream>
+#include <cstdio>
+
+#include "selfdrive/hardware/hw.h"
 QFrame *horizontal_line(QWidget *parent = nullptr);
+
+class ElidedLabel : public QLabel {
+  Q_OBJECT
+
+ public:
+  explicit ElidedLabel(QWidget *parent = 0);
+  explicit ElidedLabel(const QString &text, QWidget *parent = 0);
+
+ protected:
+  void paintEvent(QPaintEvent *event) override;
+  void resizeEvent(QResizeEvent* event) override;
+  QString lastText_, elidedText_;
+};
 
 class AbstractControl : public QFrame {
   Q_OBJECT
@@ -46,7 +58,7 @@ class LabelControl : public AbstractControl {
   Q_OBJECT
 
 public:
-  LabelControl(const QString &title, const QString &text, const QString &desc = "", QWidget *parent = nullptr) : AbstractControl(title, desc, "", parent) {
+  LabelControl(const QString &title, const QString &text = "", const QString &desc = "", QWidget *parent = nullptr) : AbstractControl(title, desc, "", parent) {
     label.setText(text);
     label.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     hlayout->addWidget(&label);
@@ -54,7 +66,7 @@ public:
   void setText(const QString &text) { label.setText(text); }
 
 private:
-  QLabel label;
+  ElidedLabel label;
 };
 
 // widget for a button with a label
@@ -62,32 +74,15 @@ class ButtonControl : public AbstractControl {
   Q_OBJECT
 
 public:
-  template <typename Functor>
-  ButtonControl(const QString &title, const QString &text, const QString &desc, Functor functor, const QString &icon = "", QWidget *parent = nullptr) : AbstractControl(title, desc, icon, parent) {
-    btn.setText(text);
-    btn.setStyleSheet(R"(
-      QPushButton {
-        padding: 0;
-        border-radius: 50px;
-        font-size: 35px;
-        font-weight: 500;
-        color: #E4E4E4;
-        background-color: #393939;
-      }
-      QPushButton:disabled {
-        color: #33E4E4E4;
-      }
-    )");
-    btn.setFixedSize(250, 100);
-    QObject::connect(&btn, &QPushButton::released, functor);
-    hlayout->addWidget(&btn);
-  }
-  void setText(const QString &text) { btn.setText(text); }
+  ButtonControl(const QString &title, const QString &text, const QString &desc = "", QWidget *parent = nullptr);
+  inline void setText(const QString &text) { btn.setText(text); }
+  inline QString text() const { return btn.text(); }
+
+signals:
+  void clicked();
 
 public slots:
-  void setEnabled(bool enabled) {
-    btn.setEnabled(enabled);
-  };
+  void setEnabled(bool enabled) { btn.setEnabled(enabled); };
 
 private:
   QPushButton btn;
@@ -132,34 +127,29 @@ public:
 protected:
   Params params;
 };
-
+//prebuilt param control class, this only uses for prebuilt toggle button.
 class PrebuiltParamControl : public ParamControl {
   Q_OBJECT
 
 
 
- public:
+public:
   PrebuiltParamControl(const QString &param, const QString &title, const QString &desc, const QString &icon, QWidget *parent = nullptr) :
-                ParamControl(param, title,desc, icon, parent)
- {
-#ifdef QCOM
+          ParamControl(param, title,desc, icon, parent) {
+
+    //when instantiate object
     if (params.getBool(param.toStdString().c_str())) {
-       printf("#147 touch\n");
-      HardwareEon::touch_prebuilt();
+        std::ofstream output("/data/openpilot/prebuilt"); //touch prebuilt
     } else {
-    printf("#150 rm\n");
-      HardwareEon::rm_prebuilt();
+        std::remove("/data/openpilot/prebuilt"); //rm prebuilt
     }
     QObject::connect(this, &ToggleControl::toggleFlipped, [=](bool state) {
-        if (state ) {
-        printf("#155 touch\n");
-          HardwareEon::touch_prebuilt();
+          if (state ) {
+            std::ofstream output("/data/openpilot/prebuilt");
         } else {
-        printf("#158 rm\n");
-          HardwareEon::rm_prebuilt();
+            std::remove("/data/openpilot/prebuilt");
         }
     });
-#endif
  }
 };
 

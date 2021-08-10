@@ -60,28 +60,6 @@ int safety_fwd_hook(int bus_num, CAN_FIFOMailBox_TypeDef *to_fwd) {
   return current_hooks->fwd(bus_num, to_fwd);
 }
 
-pump_hook message_pump_hook;
-
-void enable_message_pump(uint32_t divider, pump_hook hook) {
-  //Timer for LKAS pump
-  //todo: some kind of locking?
-  message_pump_active = true;
-  message_pump_hook = hook;
-  timer_init(TIM7, divider);
-  NVIC_EnableIRQ(TIM7_IRQn);
-}
-
-void update_message_pump_rate(uint32_t divider) {
-  //TODO: test if this works
-  TIM7->PSC = divider-1;
-}
-
-void disable_message_pump() {
-  NVIC_DisableIRQ(TIM7_IRQn);
-  message_pump_hook = NULL;
-  message_pump_active = false;
-}
-
 // Given a CRC-8 poly, generate a static lookup table to use with a fast CRC-8
 // algorithm. Called at init time for safety modes using CRC-8.
 void gen_crc_lookup_table(uint8_t poly, uint8_t crc_lut[]) {
@@ -149,7 +127,7 @@ int get_addr_check_index(CAN_FIFOMailBox_TypeDef *to_push, AddrCheckStruct addr_
 
 // 1Hz safety function called by main. Now just a check for lagging safety messages
 void safety_tick(const safety_hooks *hooks) {
-  uint32_t ts = TIM2->CNT;
+  uint32_t ts = microsecond_timer_get();
   if (hooks->addr_check != NULL) {
     for (int i=0; i < hooks->addr_check_len; i++) {
       uint32_t elapsed_time = get_ts_elapsed(ts, hooks->addr_check[i].last_timestamp);
@@ -187,7 +165,7 @@ bool is_msg_valid(AddrCheckStruct addr_list[], int index) {
 
 void update_addr_timestamp(AddrCheckStruct addr_list[], int index) {
   if (index != -1) {
-    uint32_t ts = TIM2->CNT;
+    uint32_t ts = microsecond_timer_get();
     addr_list[index].last_timestamp = ts;
   }
 }
@@ -273,10 +251,10 @@ const safety_hook_config safety_hook_registry[] = {
   {SAFETY_NOOUTPUT, &nooutput_hooks},
   {SAFETY_HYUNDAI_LEGACY, &hyundai_legacy_hooks},
 #ifdef ALLOW_DEBUG
+  {SAFETY_TESLA, &tesla_hooks},
   {SAFETY_MAZDA, &mazda_hooks},
   {SAFETY_SUBARU_LEGACY, &subaru_legacy_hooks},
   {SAFETY_VOLKSWAGEN_PQ, &volkswagen_pq_hooks},
-  {SAFETY_TESLA, &tesla_hooks},
   {SAFETY_ALLOUTPUT, &alloutput_hooks},
   {SAFETY_GM_ASCM, &gm_ascm_hooks},
   {SAFETY_FORD, &ford_hooks},
@@ -328,9 +306,6 @@ int set_safety_hooks(uint16_t mode, int16_t param) {
   if ((set_status == 0) && (current_hooks->init != NULL)) {
     current_hooks->init(param);
   }
-  if (mode == SAFETY_NOOUTPUT) {
-    disable_message_pump();
-  } 
   return set_status;
 }
 

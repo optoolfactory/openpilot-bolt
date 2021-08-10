@@ -157,6 +157,8 @@ def thermald_thread():
   network_strength = NetworkStrength.unknown
   wifiIpAddress = 'N/A'
   network_info = None
+  modem_version = None
+  registered_count = 0
 
   current_filter = FirstOrderFilter(0., CURRENT_TAU, DT_TRML)
   cpu_temp_filter = FirstOrderFilter(0., CPU_TEMP_TAU, DT_TRML)
@@ -170,6 +172,7 @@ def thermald_thread():
   power_monitor = PowerMonitoring()
   no_panda_cnt = 0
 
+  HARDWARE.initialize_hardware()
   thermal_config = HARDWARE.get_thermal_config()
 
   if params.get_bool("IsOnroad"):
@@ -235,13 +238,33 @@ def thermald_thread():
         network_type = HARDWARE.get_network_type()
         network_strength = HARDWARE.get_network_strength(network_type)
         network_info = HARDWARE.get_network_info()  # pylint: disable=assignment-from-none
+
+
         wifiIpAddress = HARDWARE.get_ip_address()
+
+        # Log modem version once
+        if modem_version is None:
+          modem_version = HARDWARE.get_modem_version()  # pylint: disable=assignment-from-none
+          if modem_version is not None:
+            cloudlog.warning(f"Modem version: {modem_version}")
+
+        if TICI and (network_info.get('state', None) == "REGISTERED"):
+          registered_count += 1
+        else:
+          registered_count = 0
+
+        if registered_count > 10:
+          cloudlog.warning(f"Modem stuck in registered state {network_info}. nmcli conn up lte")
+          os.system("nmcli conn up lte")
+          registered_count = 0
+
       except Exception:
         cloudlog.exception("Error getting network status")
 
     msg.deviceState.freeSpacePercent = get_available_percent(default=100.0)
     msg.deviceState.memoryUsagePercent = int(round(psutil.virtual_memory().percent))
     msg.deviceState.cpuUsagePercent = int(round(psutil.cpu_percent()))
+    msg.deviceState.gpuUsagePercent = int(round(HARDWARE.get_gpu_usage_percent()))
     msg.deviceState.networkType = network_type
     msg.deviceState.networkStrength = network_strength
     msg.deviceState.wifiIpAddress = wifiIpAddress
@@ -347,7 +370,7 @@ def thermald_thread():
     # with 2% left, we killall, otherwise the phone will take a long time to boot
     startup_conditions["free_space"] = msg.deviceState.freeSpacePercent > 2
     startup_conditions["completed_training"] = params.get("CompletedTrainingVersion") == training_version or \
-                                               (current_branch in ['dashcam', 'dashcam-staging'])
+                                               params.get_bool("Passive")
     startup_conditions["not_driver_view"] = not params.get_bool("IsDriverViewEnabled")
     startup_conditions["not_taking_snapshot"] = not params.get_bool("IsTakingSnapshot")
     # if any CPU gets above 107 or the battery gets above 63, kill all processes
@@ -364,9 +387,6 @@ def thermald_thread():
       params.put_bool("IsOnroad", should_start)
       params.put_bool("IsOffroad", not should_start)
       HARDWARE.set_power_save(not should_start)
-      if TICI and not params.get_bool("EnableLteOnroad"):
-        fxn = "off" if should_start else "on"
-        os.system(f"nmcli radio wwan {fxn}")
 
     if should_start:
       off_ts = None
@@ -390,7 +410,7 @@ def thermald_thread():
     msg.deviceState.chargingDisabled = power_monitor.should_disable_charging(pandaState, off_ts)
 
     # Set EON charging disable
-    # based on kegman, ì°¨ëŸ‰ ì €ì••ë°°í„°ë¦¬ì˜ ì „ì••, ì´ì˜¨ ë°°í„°ë¦¬ í¼ì„¼í‹°ì§€,
+    # based on kegman, Â÷·® Àú¾Ğ¹èÅÍ¸®ÀÇ Àü¾Ğ, ÀÌ¿Â ¹èÅÍ¸® ÆÛ¼¾Æ¼Áö,
     if EON:
       from selfdrive.thermald.eon_battery_manager import setEONChargingStatus
       setEONChargingStatus(power_monitor.car_voltage_mV, msg.deviceState.batteryPercent)
@@ -401,6 +421,16 @@ def thermald_thread():
       # TODO: add function for blocking cloudlog instead of sleep
       time.sleep(10)
       HARDWARE.shutdown()
+
+    # dp - auto shutdown
+    if off_ts is not None:
+      shutdown_sec = 240
+      sec_now = sec_since_boot() - off_ts
+      if (shutdown_sec - 5) < sec_now:
+        msg.deviceState.chargingDisabled = True
+      if shutdown_sec < sec_now:
+        time.sleep(5)
+        HARDWARE.shutdown()
 
     # If UI has crashed, set the brightness to reasonable non-zero value
     manager_state = messaging.recv_one_or_none(managerState_sock)

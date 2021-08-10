@@ -20,7 +20,7 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint, has_relay)
     ret.carName = "gm"
     ret.safetyModel = car.CarParams.SafetyModel.gm
-    ret.enableCruise = False  # stock cruise control is kept off
+    ret.pcmCruise = False  # stock cruise control is kept off
 
     # GM port is a community feature
     # TODO: make a port that uses a car harness and it only intercepts the camera
@@ -29,15 +29,15 @@ class CarInterface(CarInterfaceBase):
     # Presence of a camera on the object bus is ok.
     # Have to go to read_only if ASCM is online (ACC-enabled cars),
     # or camera is on powertrain bus (LKA cars without ACC).
-    ret.enableCamera = True
+
     ret.enableGasInterceptor = 0x201 in fingerprint[0]
-    ret.openpilotLongitudinalControl = ret.enableCamera and ret.enableGasInterceptor
+    ret.openpilotLongitudinalControl = ret.enableGasInterceptor
 
     tire_stiffness_factor = 0.5
 
     ret.minSteerSpeed = 10 * CV.KPH_TO_MS
-    ret.steerRateCost = 0.35 # def : 2.0
-    ret.steerActuatorDelay = 0.2  # def: 0.2 Default delay, not measured yet
+    ret.steerRateCost = 0.3625 # def : 2.0
+    ret.steerActuatorDelay = 0.1925  # def: 0.2 Default delay, not measured yet
 
     ret.minEnableSpeed = -1
     ret.mass = 1625. + STD_CARGO_KG
@@ -48,7 +48,7 @@ class CarInterface(CarInterfaceBase):
     ret.centerToFront = ret.wheelbase * 0.49 # wild guess
     ret.lateralTuning.init('lqr')
 
-    ret.lateralTuning.lqr.scale = 1965.0
+    ret.lateralTuning.lqr.scale = 1975.0
     ret.lateralTuning.lqr.ki = 0.032
     ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
     ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
@@ -153,16 +153,26 @@ class CarInterface(CarInterfaceBase):
       self.CS.enable_lkas = True
 
     #Added by jc01rho inspired by JangPoo
-    if self.flag_initial_pcmEnable and self.CS.main_on  and ret.cruiseState.enabled and ret.gearShifter == GearShifter.drive and ret.vEgo > 2 and not ret.brakePressed :
-      if ret.cruiseState.available and not ret.seatbeltUnlatched and not ret.espDisabled:
-        self.initial_pcmEnable_counter = self.initial_pcmEnable_counter+1
-        if self.initial_pcmEnable_counter > 750 :
+    if self.CS.main_on  and ret.cruiseState.enabled and ret.gearShifter == GearShifter.drive and ret.vEgo > 2 and not ret.brakePressed :
+      if ret.cruiseState.available and not ret.seatbeltUnlatched and not ret.espDisabled and self.flag_pcmEnable_able :
+
+        if self.flag_pcmEnable_initialSet == False :
+          self.initial_pcmEnable_counter = self.initial_pcmEnable_counter + 1
+          if self.initial_pcmEnable_counter > 750 :
+            events.add(EventName.pcmEnable)
+            self.flag_pcmEnable_initialSet = True
+            self.flag_pcmEnable_able = False
+            self.initial_pcmEnable_counter = 0
+        else :
           events.add(EventName.pcmEnable)
-        if self.initial_pcmEnable_counter > 1500 :
-          self.flag_initial_pcmEnable = False
-          self.initial_pcmEnable_counter = 0
-    if not self.flag_initial_pcmEnable  and  (ret.gearShifter == GearShifter.park or ret.gearShifter == GearShifter.reverse or (ret.brakePressed and ret.vEgo < 1)) :
-      self.flag_initial_pcmEnable = True
+          self.flag_pcmEnable_able = False
+          # self.flag_pcmEnable_initialSet = True
+          # self.initial_pcmEnable_counter = 0
+    else  :
+      self.flag_pcmEnable_able = True
+
+    # if not self.flag_pcmEnable_initialSet  and  (ret.gearShifter == GearShifter.park or ret.gearShifter == GearShifter.reverse or (ret.brakePressed and ret.vEgo < 1)) :
+    #   self.flag_pcmEnable_initialSet = True
 
     ret.events = events.to_msg()
 

@@ -36,12 +36,13 @@ const CanMsg GM_TX_MSGS[] = {{MSG_TX_LKA, 0, 4}, {MSG_TX_ALIVE, 0, 7}, {MSG_TX_A
                              {0x104c006c, 3, 3}, {0x10400060, 3, 5}};  // gmlan
 
 // TODO: do checksum and counter checks. Add correct timestep, 0.1s for now.
+
 AddrCheckStruct gm_rx_checks[] = {
-  {.msg = {{MSG_RX_STEER, 0, 8, .expected_timestep = 100000U}}},
-  {.msg = {{MSG_RX_WHEEL, 0, 5, .expected_timestep = 100000U}}},
-  {.msg = {{MSG_RX_BUTTON, 0, 7, .expected_timestep = 100000U}}},
-  {.msg = {{MSG_RX_BRAKE, 0, 6, .expected_timestep = 100000U}}},
-  {.msg = {{MSG_RX_GAS, 0, 7, .expected_timestep = 100000U}}},
+  {.msg = {{MSG_RX_STEER, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_RX_WHEEL, 0, 5, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_RX_BUTTON, 0, 7, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_RX_BRAKE, 0, 6, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_RX_GAS, 0, 7, .expected_timestep = 100000U}, { 0 }, { 0 }}},
 };
 const int GM_RX_CHECK_LEN = sizeof(gm_rx_checks) / sizeof(gm_rx_checks[0]);
 
@@ -87,6 +88,9 @@ static int gm_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
         case 5:  // main on
           controls_allowed = 1;
           break;
+        case 6:
+          controls_allowed = 1;
+          break;
         default:
           break;  // any other button is irrelevant
       }
@@ -114,14 +118,15 @@ static int gm_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
     // Check if LKA camera are online
     // on powertrain bus.
     // 384 = ASCMLKASteeringCmd
-    generic_rx_checks(addr == MSG_TX_LKA);
+    generic_rx_checks(((addr == MSG_TX_LKA) || (addr == 715)));
   }
   return valid;
 }
 
 static bool gm_steering_check(int desired_torque) {
-  bool violation = false;
-  uint32_t ts = TIM2->CNT;
+  
+  uint32_t ts = MICROSECOND_TIMER->CNT;
+  bool violation = 0;
 
   if (controls_allowed) {
     // *** global torque limit check ***
@@ -183,6 +188,8 @@ static int gm_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
   // LKA STEER: safety check
   if (addr == MSG_TX_LKA) {
     int desired_torque = ((GET_BYTE(to_send, 0) & 0x7U) << 8) + GET_BYTE(to_send, 1);
+    
+
     desired_torque = to_signed(desired_torque, 11);
 
     if (gm_steering_check(desired_torque)) {
