@@ -413,8 +413,7 @@ def thermald_thread():
     if EON:
       from selfdrive.thermald.eon_battery_manager import setEONChargingStatus
       setEONChargingStatus(power_monitor.car_voltage_mV, msg.deviceState.batteryPercent)
-    else :
-      print("this is not eon from thermald")
+
 
     # Check if we need to shut down
     if power_monitor.should_shutdown(pandaState, off_ts, started_seen):
