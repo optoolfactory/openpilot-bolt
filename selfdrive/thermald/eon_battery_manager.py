@@ -27,3 +27,4 @@ def setEONChargingStatus(car_voltage_mV, batteryPercent) :
                 HARDWARE.set_battery_charging(True)
                 return
    
+

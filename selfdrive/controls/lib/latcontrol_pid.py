@@ -1,13 +1,14 @@
 import math
 
-from selfdrive.controls.lib.pid import LatPIDController
+from selfdrive.controls.lib.pid import PIController
 from selfdrive.controls.lib.drive_helpers import get_steer_max
 from cereal import log
 
 
 class LatControlPID():
   def __init__(self, CP):
-    self.pid = LatPIDController((CP.lateralTuning.pid.kpBP, CP.lateralTuning.pid.kpV),
+                            (CP.lateralTuning.pid.kiBP, CP.lateralTuning.pid.kiV),
+    self.pid = PIController((CP.lateralTuning.pid.kpBP, CP.lateralTuning.pid.kpV),
                             (CP.lateralTuning.pid.kiBP, CP.lateralTuning.pid.kiV),
                             k_f=CP.lateralTuning.pid.kf, pos_limit=1.0, neg_limit=-1.0,
                             sat_limit=CP.steerLimitTimer)
@@ -23,7 +24,7 @@ class LatControlPID():
     angle_steers_des_no_offset = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo))
     angle_steers_des = angle_steers_des_no_offset + params.angleOffsetDeg
 
-    pid_log.angleError = angle_steers_des - CS.steeringAngleDeg
+    pid_log.angleError = angle_steers_des - CS.steeringAngleDeg 
     if CS.vEgo < 0.3 or not active:
       output_steer = 0.0
       pid_log.active = False
