@@ -7,7 +7,6 @@ from cereal import log
 
 class LatControlPID():
   def __init__(self, CP):
-                            (CP.lateralTuning.pid.kiBP, CP.lateralTuning.pid.kiV),
     self.pid = PIController((CP.lateralTuning.pid.kpBP, CP.lateralTuning.pid.kpV),
                             (CP.lateralTuning.pid.kiBP, CP.lateralTuning.pid.kiV),
                             k_f=CP.lateralTuning.pid.kf, pos_limit=1.0, neg_limit=-1.0,
