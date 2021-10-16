@@ -165,7 +165,8 @@ class Controls:
     self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0)
 
     if not sounds_available:
-      self.events.add(EventName.soundsUnavailable, static=True)
+      # self.events.add(EventName.soundsUnavailable, static=True)
+      pass
     if community_feature_disallowed and car_recognized and not self.CP.dashcamOnly:
       self.events.add(EventName.communityFeatureDisallowed, static=True)
     if not car_recognized:
