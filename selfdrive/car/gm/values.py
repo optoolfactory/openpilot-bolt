@@ -32,11 +32,38 @@ class CarControllerParams():
   ACCEL_MAX = 2. # m/s^2
   ACCEL_MIN = -4. # m/s^2
 
+  MAX_GAS = 3072  # Only a safety limit
+  ZERO_GAS = 2048
+  MAX_BRAKE = 350  # Should be around 3.5m/s^2, including regen
+
   MAX_ACC_REGEN = 1404  # Max ACC regen is slightly less than max paddle regen
   GAS_LOOKUP_BP = [-1., 0., ACCEL_MAX]
   GAS_LOOKUP_V = [MAX_ACC_REGEN, ZERO_GAS, MAX_GAS]
   BRAKE_LOOKUP_BP = [ACCEL_MIN, -1.]
   BRAKE_LOOKUP_V = [MAX_BRAKE, 0.]
+
+  def __init__(self):
+    self.STEER_MAX = 300
+    self.STEER_STEP = 4              # how often we update the steer cmd
+    self.STEER_DELTA_UP = 8           # ~0.75s time to peak torque (255/50hz/0.75s)
+    self.STEER_DELTA_DOWN = 12        # ~0.3s from peak torque to zero
+    self.MIN_STEER_SPEED = 3.
+    self.STEER_DRIVER_ALLOWANCE = 50   # allowed driver torque before start limiting
+    self.STEER_DRIVER_MULTIPLIER = 4   # weight driver torque heavily
+    self.STEER_DRIVER_FACTOR = 100     # from dbc
+    self.NEAR_STOP_BRAKE_PHASE = 0.5   # m/s, more aggressive braking near full stop
+
+    # Takes case of "Service Adaptive Cruise" and "Service Front Camera"
+    # dashboard messages.
+    self.ADAS_KEEPALIVE_STEP = 100
+    self.CAMERA_KEEPALIVE_STEP = 100
+
+    # pedal lookups, only for Volt
+
+    self.ACCEL_MAX = 2.0 # m/s^2
+
+    # Allow small margin below -3.5 m/s^2 from ISO 15622:2018 since we
+    # perform the closed loop control, and might need some
 
     # Our controller should still keep the 2 second average above
     # -3.5 m/s^2 as per planner limits
