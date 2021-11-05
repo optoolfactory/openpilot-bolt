@@ -2,6 +2,7 @@
 import os
 import math
 from numbers import Number
+import numpy as np
 
 from cereal import car, log
 from common.numpy_fast import clip

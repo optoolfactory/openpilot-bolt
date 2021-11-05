@@ -346,11 +346,12 @@ def main():
   if EON and os.geteuid() != 0:
     raise RuntimeError("updated must be launched as root!")
 
-  ov_lock_fd = open(LOCK_FILE, 'w')
-  try:
-    fcntl.flock(ov_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-  except IOError as e:
-    raise RuntimeError("couldn't get overlay lock; is another updated running?") from e
+  if EON:
+    ov_lock_fd = open(LOCK_FILE, 'w')
+    try:
+      fcntl.flock(ov_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError as e:
+      raise RuntimeError("couldn't get overlay lock; is another updated running?") from e
 
   # Set low io priority
   proc = psutil.Process()
