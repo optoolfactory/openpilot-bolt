@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from cereal import car
+from math import fabs
 from selfdrive.config import Conversions as CV
 from selfdrive.car.gm.values import CAR, CruiseButtons, \
                                     AccState, CarControllerParams
-from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint
+from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
 
 GearShifter = car.CarState.GearShifter
@@ -16,6 +17,21 @@ class CarInterface(CarInterfaceBase):
     params = CarControllerParams()
     return params.ACCEL_MIN, params.ACCEL_MAX
 
+  # Volt determined by iteratively plotting and minimizing error for f(angle, speed) = steer.
+  @staticmethod
+  def get_steer_feedforward_volt(desired_angle, v_ego):
+    # maps [-inf,inf] to [-1,1]: sigmoid(34.4 deg) = sigmoid(1) = 0.5
+    # 1 / 0.02904609 = 34.4 deg ~= 36 deg ~= 1/10 circle? Arbitrary?
+    desired_angle *= 0.02904609
+    sigmoid = desired_angle / (1 + fabs(desired_angle))
+    return 0.10006696 * sigmoid * (v_ego + 3.12485927)
+
+  def get_steer_feedforward_function(self):
+    if self.CP.carFingerprint in [CAR.VOLT]:
+      return self.get_steer_feedforward_volt
+    else:
+      return CarInterfaceBase.get_steer_feedforward_default
+
   @staticmethod
   def compute_gb(accel, speed):
     return float(accel) / 4.0
@@ -24,12 +40,8 @@ class CarInterface(CarInterfaceBase):
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), has_relay=False, car_fw=None):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint, has_relay)
     ret.carName = "gm"
-    ret.safetyModel = car.CarParams.SafetyModel.gm
+    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
     ret.pcmCruise = False  # stock cruise control is kept off
-
-    # GM port is a community feature
-    # TODO: make a port that uses a car harness and it only intercepts the camera
-    ret.communityFeature = True
 
     # Presence of a camera on the object bus is ok.
     # Have to go to read_only if ASCM is online (ACC-enabled cars),
@@ -46,7 +58,6 @@ class CarInterface(CarInterfaceBase):
 
     ret.minEnableSpeed = -1
     ret.mass = 1625. + STD_CARGO_KG
-    ret.safetyModel = car.CarParams.SafetyModel.gm
     ret.wheelbase = 2.60096
     ret.steerRatio = 16.8
     ret.steerRatioRear = 0.
@@ -126,29 +137,29 @@ class CarInterface(CarInterfaceBase):
 
     events = self.create_common_events(ret)
 
-    # if ret.vEgo < self.CP.minEnableSpeed:
-    #   events.add(EventName.belowEngageSpeed)
+    if ret.vEgo < self.CP.minEnableSpeed:
+      events.add(EventName.belowEngageSpeed)
     if self.CS.park_brake:
       events.add(EventName.parkBrake)
     if ret.vEgo < self.CP.minSteerSpeed:
       events.add(car.CarEvent.EventName.belowSteerSpeed)
-    if self.CP.enableGasInterceptor:
-      if self.CS.adaptive_Cruise and (ret.brakePressed or ret.regenPressed):
-        events.add(EventName.pedalPressed)
-        self.CS.adaptive_Cruise = False
-        self.CS.enable_lkas = True
+# if self.CP.enableGasInterceptor:
+    if self.CS.adaptive_Cruise and ret.brakePressed:
+      events.add(EventName.pedalPressed)
+      self.CS.adaptive_Cruise = False
+      self.CS.enable_lkas = True
 
     # handle button presses
     if not self.CS.main_on and self.CP.enableGasInterceptor:
       for b in ret.buttonEvents:
-        if (b.type == ButtonType.decelCruise and not b.pressed) and not self.CS.adaptive_Cruise:
-          self.CS.adaptive_Cruise = True
-          self.CS.enable_lkas = True
-          events.add(EventName.buttonEnable)
-        if (b.type == ButtonType.accelCruise and not b.pressed) and not self.CS.adaptive_Cruise:
-          self.CS.adaptive_Cruise = True
-          self.CS.enable_lkas = False
-          events.add(EventName.buttonEnable)
+        # if (b.type == ButtonType.decelCruise and not b.pressed) and not self.CS.adaptive_Cruise:
+        #   self.CS.adaptive_Cruise = True
+        #   self.CS.enable_lkas = True
+        #   events.add(EventName.buttonEnable)
+        # if (b.type == ButtonType.accelCruise and not b.pressed) and not self.CS.adaptive_Cruise:
+        #   self.CS.adaptive_Cruise = False
+        #   self.CS.enable_lkas = False
+        #   events.add(EventName.buttonEnable)
         if (b.type == ButtonType.cancel and b.pressed) and self.CS.adaptive_Cruise:
           self.CS.adaptive_Cruise = False
           self.CS.enable_lkas = True
@@ -156,6 +167,7 @@ class CarInterface(CarInterfaceBase):
     elif self.CS.main_on:
       self.CS.adaptive_Cruise = False
       self.CS.enable_lkas = True
+
 
     #Added by jc01rho inspired by JangPoo
     if self.CS.main_on  and ret.cruiseState.enabled and ret.gearShifter == GearShifter.drive and ret.vEgo > 2 and not ret.brakePressed :
@@ -175,11 +187,8 @@ class CarInterface(CarInterfaceBase):
           # self.initial_pcmEnable_counter = 0
     else  :
       self.flag_pcmEnable_able = True
-
-    # if not self.flag_pcmEnable_initialSet  and  (ret.gearShifter == GearShifter.park or ret.gearShifter == GearShifter.reverse or (ret.brakePressed and ret.vEgo < 1)) :
-    #   self.flag_pcmEnable_initialSet = True
-
     ret.events = events.to_msg()
+
 
     # copy back carState packet to CS
     self.CS.out = ret.as_reader()
@@ -199,3 +208,4 @@ class CarInterface(CarInterfaceBase):
 
     self.frame += 1
     return can_sends
+

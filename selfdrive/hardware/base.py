@@ -111,6 +111,10 @@ class HardwareBase:
     pass
 
   @abstractmethod
+  def get_screen_brightness(self):
+    pass
+
+  @abstractmethod
   def set_power_save(self, powersave_enabled):
     pass
 
@@ -123,9 +127,21 @@ class HardwareBase:
     pass
 
   @abstractmethod
+  def get_modem_temperatures(self):
+    pass
+
+  @abstractmethod
+  def get_nvme_temperatures(self):
+    pass
+
+  @abstractmethod
   def initialize_hardware(self):
     pass
 
   @abstractmethod
   def get_networks(self):
+    pass
+
+  @abstractmethod
+  def get_ip_address(self):
     pass
