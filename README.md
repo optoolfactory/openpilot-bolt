@@ -1,4 +1,4 @@
-# due to broken of my LePro, I would going to stop developing of thid repo.
+# due to broken of my LePro, I would going to stop developing of this repo.
 # Repository Will be archived!
 ## @hanabi95님의 코드를 기반으로 하고있습니다. 항상 감사드립니다.
 
