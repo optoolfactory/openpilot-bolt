@@ -22,7 +22,6 @@ class CarState(CarStateBase):
     ret.lkasEnable = self.enable_lkas
     self.prev_cruise_buttons = self.cruise_buttons
     self.cruise_buttons = pt_cp.vl["ASCMSteeringButton"]["ACCButtons"]
-
     ret.wheelSpeeds.fl = pt_cp.vl["EBCMWheelSpdFront"]["FLWheelSpd"] * CV.KPH_TO_MS
     ret.wheelSpeeds.fr = pt_cp.vl["EBCMWheelSpdFront"]["FRWheelSpd"] * CV.KPH_TO_MS
     ret.wheelSpeeds.rl = pt_cp.vl["EBCMWheelSpdRear"]["RLWheelSpd"] * CV.KPH_TO_MS
@@ -30,6 +29,7 @@ class CarState(CarStateBase):
     ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.standstill = ret.vEgoRaw < 0.1
+    ret.vEgo = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"] * CV.MPH_TO_MS
 
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL"]["PRNDL"], None))
     ret.brake = pt_cp.vl["EBCMBrakePedalPosition"]["BrakePedalPosition"] / 0xd0
@@ -37,8 +37,12 @@ class CarState(CarStateBase):
     if ret.brake < 10/0xd0:
       ret.brake = 0.
 
-    ret.gas = pt_cp.vl["AcceleratorPedal"]["AcceleratorPedal"] / 254.
-    ret.gasPressed = ret.gas > 1e-5
+    if self.CP.enableGasInterceptor:
+      ret.gas = (pt_cp.vl["GAS_SENSOR"]["INTERCEPTOR_GAS"] + pt_cp.vl["GAS_SENSOR"]["INTERCEPTOR_GAS2"]) / 2.
+      ret.gasPressed = ret.gas > 20
+    else:
+      ret.gas = pt_cp.vl["AcceleratorPedal"]["AcceleratorPedal"] / 254.
+      ret.gasPressed = ret.gas > 1e-5
 
     ret.steeringAngleDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelAngle"]
     ret.steeringRateDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelRate"]
@@ -62,21 +66,17 @@ class CarState(CarStateBase):
     ret.leftBlinker = pt_cp.vl["BCMTurnSignals"]["TurnSignals"] == 1
     ret.rightBlinker = pt_cp.vl["BCMTurnSignals"]["TurnSignals"] == 2
 
-    ret.seatbeltUnlatched = pt_cp.vl["BCMDoorBeltStatus"]['LeftSeatBelt'] == 0
-    ret.leftBlinker = pt_cp.vl["BCMTurnSignals"]['TurnSignals'] == 1
-    ret.rightBlinker = pt_cp.vl["BCMTurnSignals"]['TurnSignals'] == 2
-
-    self.park_brake = pt_cp.vl["EPBStatus"]['EPBClosed']
-    self.main_on = bool(pt_cp.vl["ECMEngineStatus"]['CruiseMainOn'])
-    ret.espDisabled = pt_cp.vl["ESPStatus"]['TractionControlOn'] != 1
-    self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]['CruiseState']
+    self.park_brake = pt_cp.vl["EPBStatus"]["EPBClosed"]
+    self.main_on = bool(pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"])
+    ret.espDisabled = pt_cp.vl["ESPStatus"]["TractionControlOn"] != 1
+    self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
     ret.cruiseState.available = self.pcm_acc_status != 0
     ret.cruiseState.standstill = False
 
     ret.brakePressed = ret.brake > 1e-5
     ret.regenPressed = False
     if self.car_fingerprint == CAR.VOLT or self.car_fingerprint == CAR.BOLT:
-      ret.regenPressed = bool(pt_cp.vl["EBCMRegenPaddle"]['RegenPaddle'])
+      ret.regenPressed = bool(pt_cp.vl["EBCMRegenPaddle"]["RegenPaddle"])
     brake_light_enable = False
     if self.car_fingerprint == CAR.BOLT:
       if ret.aEgo < -1.3:
@@ -118,6 +118,8 @@ class CarState(CarStateBase):
       ("CruiseMainOn", "ECMEngineStatus", 0),
       ("ACCCmdActive", "ASCMActiveCruiseControlStatus", 0),
       ("LKATotalTorqueDelivered", "PSCMStatus", 0),
+      ("VehicleSpeed", "ECMVehicleSpeed", 0),
+
     ]
 
 

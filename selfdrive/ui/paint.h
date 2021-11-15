@@ -2,6 +2,8 @@
 
 #include "selfdrive/ui/ui.h"
 
+#define UI_FEATURE_BATTERY_LEVEL 1
+
 void ui_draw(UIState *s, int w, int h);
 void ui_draw_image(const UIState *s, const Rect &r, const char *name, float alpha);
 void ui_draw_rect(NVGcontext *vg, const Rect &r, NVGcolor color, int width, float radius = 0);

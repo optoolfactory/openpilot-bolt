@@ -15,7 +15,7 @@ from selfdrive.swaglog import cloudlog
 from selfdrive.boardd.boardd import can_list_to_can_capnp
 from selfdrive.car.car_helpers import get_car, get_startup_event, get_one_can
 from selfdrive.controls.lib.lane_planner import CAMERA_OFFSET, TRAJECTORY_SIZE
-from selfdrive.controls.lib.drive_helpers import update_v_cruise, initialize_v_cruise
+from selfdrive.controls.lib.drive_helpers import update_v_cruise, initialize_v_cruise,update_v_cruise_regen
 from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
 from selfdrive.controls.lib.longcontrol import LongControl
 from selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -397,7 +397,7 @@ class Controls:
         curv = curv[5:TRAJECTORY_SIZE - 10]
         a_y_max = 2.975 - v_ego * 0.0375  # ~1.85 @ 75mph, ~2.6 @ 25mph
         v_curvature = np.sqrt(a_y_max / np.clip(np.abs(curv), 1e-4, None))
-        model_speed = np.mean(v_curvature) * 0.95
+        model_speed = np.mean(v_curvature) * 0.90
 
         if model_speed < v_ego:
           self.curve_speed_ms = float(max(model_speed, 32. * CV.KPH_TO_MS))
@@ -417,10 +417,12 @@ class Controls:
     self.v_cruise_kph_last = self.v_cruise_kph
 
     # if stock cruise is completely disabled, then we can use our own set speed logic
-    if not self.CP.pcmCruise:
+    if CS.adaptiveCruise:
       self.v_cruise_kph = update_v_cruise(self.v_cruise_kph, CS.buttonEvents, self.button_timers, self.enabled, self.is_metric)
-    elif self.CP.pcmCruise and CS.cruiseState.enabled:
-      self.v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
+      if CS.regenPressed:
+        self.v_cruise_kph = update_v_cruise_regen(CS.vEgo, self.v_cruise_kph, CS.regenPressed, self.enabled)
+    elif not CS.adaptiveCruise and CS.cruiseState.enabled:
+      self.v_cruise_kph = 40
 
     # decrease the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
@@ -660,7 +662,7 @@ class Controls:
     controlsState.engageable = not self.events.any(ET.NO_ENTRY)
     controlsState.longControlState = self.LoC.long_control_state
     controlsState.vPid = float(self.LoC.v_pid)
-    controlsState.vCruise = float(self.v_cruise_kph_limit)
+    controlsState.vCruise = float(self.v_cruise_kph)
     controlsState.upAccelCmd = float(self.LoC.pid.p)
     controlsState.uiAccelCmd = float(self.LoC.pid.i)
     controlsState.ufAccelCmd = float(self.LoC.pid.f)

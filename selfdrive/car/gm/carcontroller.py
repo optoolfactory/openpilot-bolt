@@ -9,7 +9,7 @@ from opendbc.can.packer import CANPacker
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
-VEL = [13.889, 16.667, 25.]  # velocities
+VEL = [50*CV.KPH_TO_MS, 60*CV.KPH_TO_MS, 90*CV.KPH_TO_MS]  # velocities
 MIN_PEDAL = [0.02, 0.05, 0.1]
 
 def accel_hysteresis(accel, accel_steady):
@@ -35,8 +35,8 @@ class CarController():
     self.params = CarControllerParams()
 
     self.packer_pt = CANPacker(DBC[CP.carFingerprint]['pt'])
-    self.packer_obj = CANPacker(DBC[CP.carFingerprint]['radar'])
-    self.packer_ch = CANPacker(DBC[CP.carFingerprint]['chassis'])
+    #self.packer_obj = CANPacker(DBC[CP.carFingerprint]['radar'])
+    #self.packer_ch = CANPacker(DBC[CP.carFingerprint]['chassis'])
 
   def update(self, enabled, CS, frame, actuators,
              hud_v_cruise, hud_show_lanes, hud_show_car, hud_alert):
@@ -68,15 +68,16 @@ class CarController():
         final_pedal = 0
       elif CS.adaptive_Cruise:
         min_pedal_speed = interp(CS.out.vEgo, VEL, MIN_PEDAL)
-        pedal = clip(actuators.gas, min_pedal_speed, 1.)
-        regen = actuators.brake
+        pedal_accel = actuators.accel / 3
+        pedal = clip(pedal_accel, min_pedal_speed, 1.)
+        regen = - pedal_accel
         pedal, self.accel_steady = accel_hysteresis(pedal, self.accel_steady)
         final_pedal = clip(pedal - regen, 0., 1.)
-        if regen > 0.1:
+        if regen < - 0.1:
           can_sends.append(gmcan.create_regen_paddle_command(self.packer_pt, CanBus.POWERTRAIN))
 
-      idx = (frame // 2) % 4
-      can_sends.append(create_gas_command(self.packer_pt, final_pedal, idx))
+        idx = (frame // 2) % 4
+        can_sends.append(create_gas_command(self.packer_pt, final_pedal, idx))
       #self.apply_pedal_last = final_pedal
 
     # Send dashboard UI commands (ACC status), 25hz

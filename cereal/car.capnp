@@ -142,6 +142,9 @@ struct CarState {
   yawRate @22 :Float32;     # best estimate of yaw rate
   standstill @18 :Bool;
   wheelSpeeds @2 :WheelSpeeds;
+  vehicleSpeed @41 :Float32;
+
+
 
   # gas pedal, 0.0-1.0
   gas @3 :Float32;        # this is user pedal only
@@ -467,8 +470,10 @@ struct CarParams {
     kpV @1 :List(Float32);
     kiBP @2 :List(Float32);
     kiV @3 :List(Float32);
-    deadzoneBP @4 :List(Float32);
-    deadzoneV @5 :List(Float32);
+    kfBP @4 :List(Float32);
+    kfV @5 :List(Float32);
+    deadzoneBP @6 :List(Float32);
+    deadzoneV @7 :List(Float32);
   }
 
   struct LateralINDITuning {

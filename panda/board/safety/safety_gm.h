@@ -30,9 +30,10 @@ const int GM_GAS_INTERCEPTOR_THRESHOLD = 458;  // (610 + 306.25) / 2ratio betwee
 #define MSG_TX_ASCM       0x40A   // TX by OP, for ASCM, To do : We need to check if this message is used for Bolt EV or not.
 #define MSG_TX_ACC        0x370   // TX by OP, for ACC Status, To do : We need to check if this message is used for Bolt EV or not.
 #define MSG_TX_PEDAL      0x200   // TX by OP, for Pedal Interceptor
+#define MSG_REGEN         0x189   // TX/RX for Regen Paddle
 
 
-const CanMsg GM_TX_MSGS[] = {{MSG_TX_LKA, 0, 4}, {MSG_TX_ALIVE, 0, 7}, {MSG_TX_ASCM, 0, 7}, {MSG_TX_ACC, 0, 6}, {MSG_TX_PEDAL, 0, 6}, // pt bus
+const CanMsg GM_TX_MSGS[] = {{MSG_TX_LKA, 0, 4}, {MSG_TX_ALIVE, 0, 7}, {MSG_TX_ASCM, 0, 7}, {MSG_TX_ACC, 0, 6}, {MSG_TX_PEDAL, 0, 6}, {MSG_REGEN, 0, 7}, // pt bus
                              {0x104c006c, 3, 3}, {0x10400060, 3, 5}};  // gmlan
 
 // TODO: do checksum and counter checks. Add correct timestep, 0.1s for now.
@@ -114,15 +115,14 @@ static int gm_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
     // Check if LKA camera are online
     // on powertrain bus.
     // 384 = ASCMLKASteeringCmd
-    generic_rx_checks(((addr == MSG_TX_LKA) || (addr == 715)));
+    generic_rx_checks(addr == MSG_TX_LKA);
   }
   return valid;
 }
 
 static bool gm_steering_check(int desired_torque) {
-  
-  uint32_t ts = MICROSECOND_TIMER->CNT;
-  bool violation = 0;
+  bool violation = false;
+  uint32_t ts = microsecond_timer_get();
 
   if (controls_allowed) {
     // *** global torque limit check ***
@@ -184,8 +184,6 @@ static int gm_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
   // LKA STEER: safety check
   if (addr == MSG_TX_LKA) {
     int desired_torque = ((GET_BYTE(to_send, 0) & 0x7U) << 8) + GET_BYTE(to_send, 1);
-    
-
     desired_torque = to_signed(desired_torque, 11);
 
     if (gm_steering_check(desired_torque)) {
