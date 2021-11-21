@@ -195,23 +195,23 @@ class CarInterface(CarInterfaceBase):
       self.CS.enable_lkas = True
 
     #Added by jc01rho inspired by JangPoo
-    # if self.CS.main_on  and ret.cruiseState.enabled and ret.gearShifter == GearShifter.drive and ret.vEgo > 2 and not ret.brakePressed :
-    #   if ret.cruiseState.available and not ret.seatbeltUnlatched and not ret.espDisabled and self.flag_pcmEnable_able :
-    #
-    #     if self.flag_pcmEnable_initialSet == False :
-    #       self.initial_pcmEnable_counter = self.initial_pcmEnable_counter + 1
-    #       if self.initial_pcmEnable_counter > 750 :
-    #         events.add(EventName.pcmEnable)
-    #         self.flag_pcmEnable_initialSet = True
-    #         self.flag_pcmEnable_able = False
-    #         self.initial_pcmEnable_counter = 0
-    #     else :
-    #       events.add(EventName.pcmEnable)
-    #       self.flag_pcmEnable_able = False
-    #       # self.flag_pcmEnable_initialSet = True
-    #       # self.initial_pcmEnable_counter = 0
-    # else  :
-    #   self.flag_pcmEnable_able = True
+    if self.CS.main_on  and self.CS.enable_lkas and not self.CS.adaptive_Cruise and ret.cruiseState.enabled and ret.gearShifter == GearShifter.drive and ret.vEgo > 2 and not ret.brakePressed :
+      if ret.cruiseState.available and not ret.seatbeltUnlatched and not ret.espDisabled and self.flag_pcmEnable_able :
+
+        if self.flag_pcmEnable_initialSet == False :
+          self.initial_pcmEnable_counter = self.initial_pcmEnable_counter + 1
+          if self.initial_pcmEnable_counter > 750 :
+            events.add(EventName.pcmEnable)
+            self.flag_pcmEnable_initialSet = True
+            self.flag_pcmEnable_able = False
+            self.initial_pcmEnable_counter = 0
+        else :
+          events.add(EventName.pcmEnable)
+          self.flag_pcmEnable_able = False
+          # self.flag_pcmEnable_initialSet = True
+          # self.initial_pcmEnable_counter = 0
+    else  :
+      self.flag_pcmEnable_able = True
     ###
     ret.events = events.to_msg()
 
