@@ -5,32 +5,6 @@ from selfdrive.car import dbc_dict
 Ecu = car.CarParams.Ecu
 
 class CarControllerParams():
-#  STEER_MAX = 300  # Safety limit, not LKA max. Trucks use 600.
-#  STEER_STEP = 2  # control frames per command
-#  STEER_DELTA_UP = 7
-#  STEER_DELTA_DOWN = 17
-#  MIN_STEER_SPEED = 3.  # m/s
-#  STEER_DRIVER_ALLOWANCE = 50
-#  STEER_DRIVER_MULTIPLIER = 4
-#  STEER_DRIVER_FACTOR = 100
-#  NEAR_STOP_BRAKE_PHASE = 0.5  # m/s
-
-  # Heartbeat for dash "Service Adaptive Cruise" and "Service Front Camera"
-#  ADAS_KEEPALIVE_STEP = 100
-#  CAMERA_KEEPALIVE_STEP = 100
-#  ACCEL_MAX = 2. # m/s^2
-#  ACCEL_MIN = -4. # m/s^2
-
-#  MAX_GAS = 3072  # Only a safety limit
-#  ZERO_GAS = 2048
-#  MAX_BRAKE = 350  # Should be around 3.5m/s^2, including regen
-
-#  MAX_ACC_REGEN = 1404  # Max ACC regen is slightly less than max paddle regen
-#  GAS_LOOKUP_BP = [-1., 0., ACCEL_MAX]
-#  GAS_LOOKUP_V = [MAX_ACC_REGEN, ZERO_GAS, MAX_GAS]
-#  BRAKE_LOOKUP_BP = [ACCEL_MIN, -1.]
-#  BRAKE_LOOKUP_V = [MAX_BRAKE, 0.]
-
   def __init__(self):
     self.STEER_MAX = 300
     self.STEER_STEP = 2              # how often we update the steer cmd
@@ -51,7 +25,6 @@ class CarControllerParams():
     MAX_GAS = 3072              # Only a safety limit
     ZERO_GAS = 2048
     MAX_BRAKE = 350             # Should be around 3.5m/s^2, including regen
-#    self.ACCEL_MAX = 2.0 # m/s^2
 
     # Allow small margin below -3.5 m/s^2 from ISO 15622:2018 since we
     # perform the closed loop control, and might need some
@@ -60,15 +33,13 @@ class CarControllerParams():
     # -3.5 m/s^2 as per planner limits
     self.ACCEL_MAX = 2.
     self.ACCEL_MIN = -4.0
-    self.ACCEL_SCALE = 3.0  # max(ACCEL_MAX, -ACCEL_MIN)
-
+    self.ACCEL_SCALE = 4.0  # max(ACCEL_MAX, -ACCEL_MIN)
 
     self.MAX_ACC_REGEN = 1404  # ACC Regen braking is slightly less powerful than max regen paddle
     self.GAS_LOOKUP_BP = [-1, 0., self.ACCEL_MAX]
     self.GAS_LOOKUP_V = [self.MAX_ACC_REGEN, ZERO_GAS, MAX_GAS]
     self.BRAKE_LOOKUP_BP = [self.ACCEL_MIN, -0.1]
     self.BRAKE_LOOKUP_V = [MAX_BRAKE, 0]
-
     self.ACCEL_HYST_GAP = 0.02
 
 STEER_THRESHOLD = 1.0

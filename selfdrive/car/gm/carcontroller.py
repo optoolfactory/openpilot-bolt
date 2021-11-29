@@ -68,12 +68,12 @@ class CarController():
         final_pedal = 0
       elif CS.adaptive_Cruise:
         min_pedal_speed = interp(CS.out.vEgo, VEL, MIN_PEDAL)
-        pedal_accel = actuators.accel / 3
+        pedal_accel = actuators.accel / 4
         pedal = clip(pedal_accel, min_pedal_speed, 1.)
         regen = - pedal_accel
         pedal, self.accel_steady = accel_hysteresis(pedal, self.accel_steady)
         final_pedal = clip(pedal - regen, 0., 1.)
-        if regen < - 0.1:
+        if regen > 0.1:
           can_sends.append(gmcan.create_regen_paddle_command(self.packer_pt, CanBus.POWERTRAIN))
 
         idx = (frame // 2) % 4
