@@ -1,6 +1,4 @@
 import numpy as np
-from numbers import Number
-
 from common.numpy_fast import clip, interp
 from numbers import Number
 from selfdrive.config import Conversions as CV
@@ -87,3 +85,5 @@ class PIController():
 
     self.control = clip(control, self.neg_limit, self.pos_limit)
     return self.control
+
+

@@ -77,7 +77,7 @@ def create_acc_dashboard_command(packer, bus, acc_engaged, target_speed_kph, lea
 
 def create_adas_time_status(bus, tt, idx):
   dat = [(tt >> 20) & 0xff, (tt >> 12) & 0xff, (tt >> 4) & 0xff,
-         ((tt & 0xf) << 4) + (idx << 2)]
+    ((tt & 0xf) << 4) + (idx << 2)]
   chksum = 0x1000 - dat[0] - dat[1] - dat[2] - dat[3]
   chksum = chksum & 0xfff
   dat += [0x40 + (chksum >> 8), chksum & 0xff, 0x12]

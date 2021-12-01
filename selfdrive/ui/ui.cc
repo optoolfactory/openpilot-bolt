@@ -112,6 +112,19 @@ static void update_state(UIState *s) {
     scene.engageable = cs.getEngageable() || cs.getEnabled();
     scene.dm_active = sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode();
   }
+    if (sm.updated("carState")) {
+	  s->scene.brakeLights = sm["carState"].getCarState().getBrakeLights();
+  }
+  if (sm.updated("radarState") && s->vg) {
+    std::optional<cereal::ModelDataV2::XYZTData::Reader> line;
+    if (sm.rcv_frame("modelV2") > 0) {
+      line = sm["modelV2"].getModelV2().getPosition();
+    }
+    auto radar_state = sm["radarState"].getRadarState();
+    s->scene.lead_v_rel = radar_state.getLeadOne().getVRel();
+    s->scene.lead_d_rel = radar_state.getLeadOne().getDRel();
+    s->scene.lead_status = radar_state.getLeadOne().getStatus();
+  }
   if (sm.updated("modelV2") && s->vg) {
     auto model = sm["modelV2"].getModelV2();
     update_model(s, model);
