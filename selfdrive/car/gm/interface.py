@@ -21,6 +21,9 @@ class CarInterface(CarInterfaceBase):
 
     gas_max_bp = [0., 5., 10., 20., 50., 70., 130.]
     gas_max_v = [0.68, 0.859, 1.01, 0.87, 0.63, 0.45, 0.33]
+    
+#    gas_max_bp = [0., 10., 20., 50., 70., 130.]
+#    gas_max_v = [2., 1.5, 1.0, 0.7, 0.45, 0.2]
 
     brake_max_bp = [0, 70., 130.]
     brake_max_v = [-4., -3., -2.1]
@@ -65,7 +68,7 @@ class CarInterface(CarInterfaceBase):
 
     tire_stiffness_factor = 0.5
 
-    ret.minSteerSpeed = 10 * CV.KPH_TO_MS
+    ret.minSteerSpeed = 1 * CV.KPH_TO_MS
     ret.steerRateCost = 0.3625 # def : 2.0
     ret.steerActuatorDelay = 0.1925  # def: 0.2 Default delay, not measured yet
 
@@ -88,9 +91,6 @@ class CarInterface(CarInterfaceBase):
 
 
 
-
-
-
     # TODO: get actual value, for now starting with reasonable value for
     # civic and scaling by mass and wheelbase
     ret.rotationalInertia = scale_rot_inertia(ret.mass, ret.wheelbase)
@@ -102,23 +102,27 @@ class CarInterface(CarInterfaceBase):
 
     # longitudinal
     ret.longitudinalTuning.kpBP = [0., 10.*CV.KPH_TO_MS, 20.*CV.KPH_TO_MS, 40.*CV.KPH_TO_MS, 70.*CV.KPH_TO_MS, 100.*CV.KPH_TO_MS, 130.*CV.KPH_TO_MS]
-    ret.longitudinalTuning.kpV = [1.3, 0.98, 0.83, 0.75, 0.655, 0.57, 0.48]
+    ret.longitudinalTuning.kpV = [1.3, 1.0, 0.9, 0.8, 0.6, 0.5, 0.4]
     ret.longitudinalTuning.kiBP = [0., 130. * CV.KPH_TO_MS]
     ret.longitudinalTuning.kiV = [0.05, 0.03]
     ret.longitudinalTuning.kfBP = [15., 20., 25.]
     ret.longitudinalTuning.kfV = [1., 0.5, 0.2]
-    ret.longitudinalTuning.deadzoneBP = [0., 100.*CV.KPH_TO_MS]
-    ret.longitudinalTuning.deadzoneV = [0., 0.015]
+    ret.longitudinalTuning.deadzoneBP = [0., 30.*CV.KPH_TO_MS]
+    ret.longitudinalTuning.deadzoneV = [0., 0.15]
     # ret.longitudinalActuatorDelay = 0.2
 
     # if ret.enableGasInterceptor:
     #   ret.gasMaxBP = [0.0, 5.0, 9.0, 35.0]
     #   ret.gasMaxV =  [0.4, 0.5, 0.7, 0.7]
+    
 
     ret.stoppingControl = True
-    ret.vEgoStopping = 2.0
-    ret.startAccel = 0.2
-    ret.vEgoStarting = 1.0
+    #선행차가 감속할 때 pid에서 stopping 단계로 바뀝니다. 숫자가 작으면, 즉 앞차감속이 조금만 일어나도 감속에 들어갈 수 있습니다. 무조건 민감한건 아니고 다른조건들과 곁들여서,,
+    ret.vEgoStopping = 0.5
+    #starting 단계에서 이 수치까지 초당 startingAccelRate 만큼 가속도를 올립니다. 이 수치가 넘으면 pid 상태로 넘깁니다. 현재 콤마 기본값이 -0.8이니 오파가 시작되는 순간 곧바로 이 값에 도달할듯함.
+    ret.startAccel = -0.5  
+    #선행차의 속도가 이 수치보다 커야 stopping에서 starting으로 변합니다. 
+    ret.vEgoStarting = 0.5
 
     ret.stopAccel = -0.5
 
