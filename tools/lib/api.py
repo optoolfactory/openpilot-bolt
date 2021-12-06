@@ -1,6 +1,6 @@
 import os
 import requests
-API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com')
+API_HOST = os.getenv('API_HOST', 'http://34.127.121.88:3000')
 
 class CommaApi():
   def __init__(self, token=None):

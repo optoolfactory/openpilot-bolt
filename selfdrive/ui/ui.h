@@ -1,5 +1,9 @@
 #pragma once
 
+#define UI_FEATURE_RIGHT_CPU_TEMP 1
+#define UI_FEATURE_RIGHT_BATTERY_LEVEL 1
+#define UI_FEATURE_DASHCAM 1
+
 #include <map>
 #include <memory>
 #include <string>
@@ -120,7 +124,7 @@ typedef struct UIScene {
   bool brakeLights;
   int lead_status;
   float lead_d_rel, lead_v_rel;
-
+ 
   cereal::DeviceState::Reader deviceState;
   cereal::RadarState::LeadData::Reader lead_data[2];
   cereal::CarState::Reader car_state;
@@ -128,6 +132,13 @@ typedef struct UIScene {
   cereal::DriverState::Reader driver_state;
   cereal::DriverMonitoringState::Reader dmonitoring_state;
 
+  // neokii debug UI
+  cereal::CarControl::Reader car_control;
+  cereal::CarParams::Reader car_params;
+  cereal::GpsLocationData::Reader gps_ext;
+  cereal::LiveParametersData::Reader live_params;
+  int satelliteCount;
+  
 } UIScene;
 
 typedef struct UIState {

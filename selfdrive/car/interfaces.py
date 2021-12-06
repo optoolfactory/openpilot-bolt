@@ -59,6 +59,10 @@ class CarInterfaceBase():
     return 1.
 
   @staticmethod
+  def compute_gb(accel, speed):
+    raise NotImplementedError
+
+  @staticmethod
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), has_relay=False, car_fw=None):
     raise NotImplementedError
 
@@ -91,9 +95,13 @@ class CarInterfaceBase():
     ret.pcmCruise = True     # openpilot's state is tied to the PCM's cruise state on most cars
     ret.minEnableSpeed = -1. # enable is done by stock ACC, so ignore this
     ret.steerRatioRear = 0.  # no rear steering, at least on the listed cars aboveA
+    ret.gasMaxBP = [0.]
+    ret.gasMaxV = [.5]       # half max brake
+    ret.brakeMaxBP = [0.]
+    ret.brakeMaxV = [1.]
     ret.openpilotLongitudinalControl = False
-    ret.minSpeedCan = 0.3
-    ret.startAccel = -0.8
+    ret.startAccel = 0.0
+    ret.minSpeedCan = 0.5
     ret.stopAccel = -2.0
     ret.startingAccelRate = 3.2 # brake_travel/s while releasing on restart
     ret.stoppingDecelRate = 0.8 # brake_travel/s while trying to stop
@@ -160,13 +168,14 @@ class CarInterfaceBase():
     if cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill):
       events.add(EventName.pedalPressed)
 
-    if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
-      events.add(EventName.pcmEnable)
-    elif not cs_out.cruiseState.enabled:
-      events.add(EventName.pcmDisable)
-
-
-
+    # we engage when pcm is active (rising edge)
+    if pcm_enable:
+      if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
+        events.add(EventName.pcmEnable)
+        if self.flag_pcmEnable_initialSet == False :
+          self.flag_pcmEnable_initialSet = True
+      elif not cs_out.cruiseState.enabled:
+        events.add(EventName.pcmDisable)
 
     return events
 

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from common.basedir import PERSIST
 from selfdrive.version import version
 
-API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com')
+API_HOST = os.getenv('API_HOST', 'http://34.127.121.88:3000')
 
 class Api():
   def __init__(self, dongle_id):

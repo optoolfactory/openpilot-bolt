@@ -1,5 +1,5 @@
 #include "selfdrive/ui/qt/widgets/prime.h"
-
+#include "selfdrive/common/params.cc"
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -8,18 +8,22 @@
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
-
 #include <QrCode.hpp>
 
 #include "selfdrive/ui/qt/request_repeater.h"
 #include "selfdrive/ui/qt/util.h"
-#include "selfdrive/ui/qt/qt_window.h"
+
 
 using qrcodegen::QrCode;
 
 PairingQRWidget::PairingQRWidget(QWidget* parent) : QWidget(parent) {
+  qrCode = new QLabel;
+  qrCode->setScaledContents(true);
+  QVBoxLayout* main_layout = new QVBoxLayout(this);
+  main_layout->addWidget(qrCode, 0, Qt::AlignCenter);
+
   QTimer* timer = new QTimer(this);
-  timer->start(5 * 60 * 1000);
+  timer->start(30 * 1000);
   connect(timer, &QTimer::timeout, this, &PairingQRWidget::refresh);
 }
 
@@ -27,86 +31,45 @@ void PairingQRWidget::showEvent(QShowEvent *event) {
   refresh();
 }
 
-void PairingQRWidget::refresh() {
-  if (isVisible()) {
-    QString pairToken = CommaApi::create_jwt({{"pair", true}});
-    QString qrString = "https://connect.comma.ai/?pair=" + pairToken;
-    this->updateQrCode(qrString);
+void PairingQRWidget::refresh(){
+  Params params;
+  QString IMEI = QString::fromStdString(params.get("IMEI"));
+  QString serial = QString::fromStdString(params.get("HardwareSerial"));
+
+  if (std::min(IMEI.length(), serial.length()) <= 5) {
+    qrCode->setText("Error getting serial: contact support");
+    qrCode->setWordWrap(true);
+    qrCode->setStyleSheet(R"(font-size: 60px;)");
+    return;
   }
+  QString pairToken = CommaApi::create_jwt({{"pair", true}});
+  QString qrString = IMEI + "--" + serial + "--" + pairToken;
+  this->updateQrCode(qrString);
 }
 
 void PairingQRWidget::updateQrCode(const QString &text) {
   QrCode qr = QrCode::encodeText(text.toUtf8().data(), QrCode::Ecc::LOW);
   qint32 sz = qr.getSize();
-  QImage im(sz, sz, QImage::Format_RGB32);
-
+  // make the image larger so we can have a white border
+  QImage im(sz + 2, sz + 2, QImage::Format_RGB32);
   QRgb black = qRgb(0, 0, 0);
   QRgb white = qRgb(255, 255, 255);
-  for (int y = 0; y < sz; y++) {
-    for (int x = 0; x < sz; x++) {
-      im.setPixel(x, y, qr.getModule(x, y) ? black : white);
+
+  for (int y = 0; y < sz + 2; y++) {
+    for (int x = 0; x < sz + 2; x++) {
+      im.setPixel(x, y, white);
     }
   }
-
-  // Integer division to prevent anti-aliasing
-  int final_sz = ((width() / sz) - 1) * sz;
-  img = QPixmap::fromImage(im.scaled(final_sz, final_sz, Qt::KeepAspectRatio), Qt::MonoOnly);
-}
-
-void PairingQRWidget::paintEvent(QPaintEvent *e) {
-  QPainter p(this);
-  p.fillRect(rect(), Qt::white);
-
-  QSize s = (size() - img.size()) / 2;
-  p.drawPixmap(s.width(), s.height(), img);
-}
-
-
-PairingPopup::PairingPopup(QWidget *parent) : QDialogBase(parent) {
-  QHBoxLayout *hlayout = new QHBoxLayout(this);
-  hlayout->setContentsMargins(0, 0, 0, 0);
-  hlayout->setSpacing(0);
-
-  setStyleSheet("PairingPopup { background-color: #E0E0E0; }");
-
-  // text
-  QVBoxLayout *vlayout = new QVBoxLayout();
-  vlayout->setContentsMargins(85, 70, 50, 70);
-  vlayout->setSpacing(50);
-  hlayout->addLayout(vlayout, 1);
-  {
-    QPushButton *close = new QPushButton(QIcon(":/icons/close.svg"), "", this);
-    close->setIconSize(QSize(80, 80));
-    close->setStyleSheet("border: none;");
-    vlayout->addWidget(close, 0, Qt::AlignLeft);
-    QObject::connect(close, &QPushButton::clicked, this, &QDialog::reject);
-
-    vlayout->addSpacing(30);
-
-    QLabel *title = new QLabel("Pair your device to your comma account", this);
-    title->setStyleSheet("font-size: 75px; color: black;");
-    title->setWordWrap(true);
-    vlayout->addWidget(title);
-
-    QLabel *instructions = new QLabel(R"(
-      <ol type='1' style='margin-left: 15px;'>
-        <li style='margin-bottom: 50px;'>Go to https://connect.comma.ai on your phone</li>
-        <li style='margin-bottom: 50px;'>Click "add new device" and scan the QR code on the right</li>
-        <li style='margin-bottom: 50px;'>Bookmark connect.comma.ai to your home screen to use it like an app</li>
-      </ol>
-    )", this);
-    instructions->setStyleSheet("font-size: 47px; font-weight: bold; color: black;");
-    instructions->setWordWrap(true);
-    vlayout->addWidget(instructions);
-
-    vlayout->addStretch();
+  for (int y = 0; y < sz; y++) {
+    for (int x = 0; x < sz; x++) {
+      im.setPixel(x + 1, y + 1, qr.getModule(x, y) ? black : white);
+    }
   }
-
-  // QR code
-  PairingQRWidget *qr = new PairingQRWidget(this);
-  hlayout->addWidget(qr, 1);
+  // Integer division to prevent anti-aliasing
+  int approx500 = (500 / (sz + 2)) * (sz + 2);
+  qrCode->setPixmap(QPixmap::fromImage(im.scaled(approx500, approx500, Qt::KeepAspectRatio, Qt::FastTransformation), Qt::MonoOnly));
+  qrCode->setFixedSize(approx500, approx500);
 }
-
 
 PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   mainLayout = new QVBoxLayout(this);
@@ -120,19 +83,19 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   primeLayout->setMargin(0);
   primeWidget->setContentsMargins(60, 50, 60, 50);
 
-  QLabel* subscribed = new QLabel("✓ SUBSCRIBED");
+  QLabel* subscribed = new QLabel("✓ RetroPilot Online");
   subscribed->setStyleSheet("font-size: 41px; font-weight: bold; color: #86FF4E;");
   primeLayout->addWidget(subscribed, 0, Qt::AlignTop);
 
   primeLayout->addSpacing(60);
 
-  QLabel* commaPrime = new QLabel("comma prime");
+  QLabel* commaPrime = new QLabel("OpenPilot");
   commaPrime->setStyleSheet("font-size: 75px; font-weight: bold;");
   primeLayout->addWidget(commaPrime, 0, Qt::AlignTop);
 
   primeLayout->addSpacing(20);
 
-  QLabel* connectUrl = new QLabel("CONNECT.COMMA.AI");
+  QLabel* connectUrl = new QLabel("Welcome To The Community!");
   connectUrl->setStyleSheet("font-size: 41px; font-family: Inter SemiBold; color: #A0A0A0;");
   primeLayout->addWidget(connectUrl, 0, Qt::AlignTop);
 
@@ -145,13 +108,14 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   pointsLayout->setMargin(0);
   pointsWidget->setContentsMargins(60, 50, 60, 50);
 
-  QLabel* commaPoints = new QLabel("COMMA POINTS");
-  commaPoints->setStyleSheet("font-size: 41px; font-family: Inter SemiBold;");
+  QLabel* commaPoints = new QLabel("Please Join Our Discord.");
+  commaPoints->setStyleSheet("font-size: 50px; font-family: Inter SemiBold;");
   pointsLayout->addWidget(commaPoints, 0, Qt::AlignTop);
 
-  points = new QLabel("0");
-  points->setStyleSheet("font-size: 91px; font-weight: bold;");
-  pointsLayout->addWidget(points, 0, Qt::AlignTop);
+
+  QLabel* points1 = new QLabel("https://discord.gg/");
+  points1->setStyleSheet("font-size: 37px; font-weight: bold;");
+  pointsLayout->addWidget(points1, 0, Qt::AlignTop);
 
   mainLayout->addWidget(pointsWidget);
 
@@ -173,7 +137,6 @@ void PrimeUserWidget::replyFinished(const QString &response) {
   }
 
   QJsonObject json = doc.object();
-  points->setText(QString::number(json["points"].toInt()));
 }
 
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
@@ -181,12 +144,12 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
-  QLabel *upgrade = new QLabel("Upgrade Now");
+  QLabel *upgrade = new QLabel("RetroPilot is Down.");
   upgrade->setStyleSheet("font-size: 75px; font-weight: bold;");
   main_layout->addWidget(upgrade, 0, Qt::AlignTop);
   main_layout->addSpacing(50);
 
-  QLabel *description = new QLabel("Become a comma prime member at connect.comma.ai");
+  QLabel *description = new QLabel("If you are seeing this somethings not right!");
   description->setStyleSheet("font-size: 60px; font-weight: light; color: white;");
   description->setWordWrap(true);
   main_layout->addWidget(description, 0, Qt::AlignTop);
@@ -198,7 +161,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->addWidget(features, 0, Qt::AlignBottom);
   main_layout->addSpacing(30);
 
-  QVector<QString> bullets = {"Remote access", "14 days of storage", "Developer perks"};
+  QVector<QString> bullets = {"Not Right", "RetroPilot", "Services Down"};
   for (auto &b: bullets) {
     const QString check = "<b><font color='#465BEA'>✓</font></b> ";
     QLabel *l = new QLabel(check + b);
@@ -233,16 +196,16 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
   finishRegistationLayout->addSpacing(30);
 
-  QLabel* registrationDescription = new QLabel("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer.");
+  QLabel* registrationDescription = new QLabel("Pair your device at api.RetroPilot.org/useradmin");
   registrationDescription->setWordWrap(true);
   registrationDescription->setStyleSheet("font-size: 55px; font-weight: light; margin-left: 55px;");
   finishRegistationLayout->addWidget(registrationDescription);
 
   finishRegistationLayout->addStretch();
 
-  QPushButton* pair = new QPushButton("Pair device");
-  pair->setFixedHeight(220);
-  pair->setStyleSheet(R"(
+  QPushButton* finishButton = new QPushButton("Pair device");
+  finishButton->setFixedHeight(220);
+  finishButton->setStyleSheet(R"(
     QPushButton {
       font-size: 55px;
       font-weight: 400;
@@ -253,17 +216,33 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
       background-color: #3049F4;
     }
   )");
-  finishRegistationLayout->addWidget(pair);
-
-  popup = new PairingPopup(this);
-  QObject::connect(pair, &QPushButton::clicked, popup, &PairingPopup::exec);
+  finishRegistationLayout->addWidget(finishButton);
+  QObject::connect(finishButton, &QPushButton::clicked, this, &SetupWidget::showQrCode);
 
   mainLayout->addWidget(finishRegistration);
 
-  // build stacked layout
+  // Pairing QR code layout
+
+  QWidget* q = new QWidget;
+  q->setObjectName("primeWidget");
+  QVBoxLayout* qrLayout = new QVBoxLayout(q);
+  qrLayout->setContentsMargins(90, 90, 90, 90);
+
+  QLabel* qrLabel = new QLabel("Scan the QR code to pair.");
+  qrLabel->setAlignment(Qt::AlignHCenter);
+  qrLabel->setStyleSheet("font-size: 47px; font-weight: light;");
+  qrLayout->addWidget(qrLabel);
+  qrLayout->addSpacing(50);
+
+  qrLayout->addWidget(new PairingQRWidget);
+  qrLayout->addStretch();
+
+  // setup widget
   QVBoxLayout *outer_layout = new QVBoxLayout(this);
   outer_layout->setContentsMargins(0, 0, 0, 0);
   outer_layout->addWidget(mainLayout);
+
+  mainLayout->addWidget(q);
 
   primeAd = new PrimeAdWidget;
   mainLayout->addWidget(primeAd);
@@ -291,15 +270,27 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
     QString url = CommaApi::BASE_URL + "/v1.1/devices/" + *dongleId + "/";
     RequestRepeater* repeater = new RequestRepeater(this, url, "ApiCache_Device", 5);
 
-    QObject::connect(repeater, &RequestRepeater::failedResponse, this, &SetupWidget::show);
     QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &SetupWidget::replyFinished);
+    QObject::connect(repeater, &RequestRepeater::failedResponse, this, &SetupWidget::parseError);
   }
   hide(); // Only show when first request comes back
 }
 
+void SetupWidget::parseError(const QString &response) {
+  show();
+  if (mainLayout->currentIndex() == 1) {
+    showQr = false;
+    mainLayout->setCurrentIndex(0);
+  }
+}
+
+void SetupWidget::showQrCode() {
+  showQr = true;
+  mainLayout->setCurrentIndex(1);
+}
+
 void SetupWidget::replyFinished(const QString &response) {
   show();
-
   QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8());
   if (doc.isNull()) {
     qDebug() << "JSON Parse failed on getting pairing and prime status";
@@ -308,13 +299,12 @@ void SetupWidget::replyFinished(const QString &response) {
 
   QJsonObject json = doc.object();
   if (!json["is_paired"].toBool()) {
-    mainLayout->setCurrentIndex(0);
+    mainLayout->setCurrentIndex(showQr);
+  } else if (!json["prime"].toBool()) {
+    showQr = false;
+    mainLayout->setCurrentWidget(primeAd);
   } else {
-    popup->reject();
-    if (!json["prime"].toBool()) {
-      mainLayout->setCurrentWidget(primeAd);
-    } else {
-      mainLayout->setCurrentWidget(primeUser);
-    }
+    showQr = false;
+    mainLayout->setCurrentWidget(primeUser);
   }
 }
