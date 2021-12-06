@@ -168,10 +168,10 @@ static void ui_draw_latlong(UIState *s) {
   if (lkasEnabled) {
 //    ui_draw_image(s, {x-w, y, w, h}, "lat_img", 1.f);
 
-    const int image_circle_size = 64;
+    const int image_circle_size = 96;
 //    const int brake_x = brake_size + (bdr_s * 2) + 255;
 //    const int brake_y = s->fb_h - footer_h / 2;
-    ui_draw_circle_image(s, x-w, y+image_circle_size*2, image_circle_size, "lat_icon_img", 1.f);
+    ui_draw_circle_image(s, x-w, y+image_circle_size, image_circle_size, "lat_icon_img", 1.f);
 
   }
   if(adaptiveCruise) {
