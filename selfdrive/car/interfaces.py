@@ -172,6 +172,8 @@ class CarInterfaceBase():
     if pcm_enable:
       if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
         events.add(EventName.pcmEnable)
+        if self.flag_pcmEnable_initialSet == False :
+          self.flag_pcmEnable_initialSet = True
       elif not cs_out.cruiseState.enabled:
         events.add(EventName.pcmDisable)
 
