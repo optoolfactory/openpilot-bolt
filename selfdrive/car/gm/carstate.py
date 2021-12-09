@@ -16,7 +16,7 @@ class CarState(CarStateBase):
     self.adaptive_Cruise = False
     self.enable_lkas = False
 
-  def update(self, pt_cp):
+  def update(self, pt_cp, loopback_cp):
     ret = car.CarState.new_message()
     ret.adaptiveCruise = self.adaptive_Cruise
     ret.lkasEnable = self.enable_lkas
@@ -28,7 +28,7 @@ class CarState(CarStateBase):
     ret.wheelSpeeds.rr = pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"] * CV.KPH_TO_MS
     ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-    ret.standstill = ret.vEgoRaw < 0.1
+    ret.standstill = ret.vEgoRaw < 0.01
     ret.vEgo = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"] * CV.MPH_TO_MS
 
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL"]["PRNDL"], None))
@@ -49,6 +49,7 @@ class CarState(CarStateBase):
     ret.steeringTorque = pt_cp.vl["PSCMStatus"]["LKADriverAppldTrq"]
     ret.steeringTorqueEps = pt_cp.vl["PSCMStatus"]["LKATorqueDelivered"]
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
+    self.lka_steering_cmd_counter = loopback_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
 
     # 0 inactive, 1 active, 2 temporarily limited, 3 failed
     self.lkas_status = pt_cp.vl["PSCMStatus"]["LKATorqueDeliveredStatus"]
@@ -68,6 +69,7 @@ class CarState(CarStateBase):
 
     self.park_brake = pt_cp.vl["EPBStatus"]["EPBClosed"]
     self.main_on = bool(pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"])
+    ret.mainOn = self.main_on
     ret.espDisabled = pt_cp.vl["ESPStatus"]["TractionControlOn"] != 1
     self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
     ret.cruiseState.available = self.pcm_acc_status != 0
@@ -137,3 +139,15 @@ class CarState(CarStateBase):
 
 
     return CANParser(DBC[CP.carFingerprint]['pt'], signals, [], CanBus.POWERTRAIN, enforce_checks=False)
+
+  @staticmethod
+  def get_loopback_can_parser(CP):
+    signals = [
+      ("RollingCounter", "ASCMLKASteeringCmd", 0),
+    ]
+
+    checks = [
+      ("ASCMLKASteeringCmd", 50),
+    ]
+
+    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, CanBus.LOOPBACK)

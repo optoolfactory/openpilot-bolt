@@ -131,11 +131,12 @@ class CarInterface(CarInterfaceBase):
   # returns a car.CarState
   def update(self, c, can_strings):
     self.cp.update_strings(can_strings)
+    self.cp_loopback.update_strings(can_strings)
 
-    ret = self.CS.update(self.cp)
+    ret = self.CS.update(self.cp, self.cp_loopback)
 
     ret.cruiseState.enabled = self.CS.main_on or self.CS.adaptive_Cruise
-    ret.canValid = self.cp.can_valid
+    ret.canValid = self.cp.can_valid and self.cp_loopback.can_valid
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     buttonEvents = []
@@ -167,13 +168,15 @@ class CarInterface(CarInterfaceBase):
       events.add(EventName.belowEngageSpeed)
     if self.CS.park_brake:
       events.add(EventName.parkBrake)
-    if ret.vEgo < self.CP.minSteerSpeed:
-      events.add(car.CarEvent.EventName.belowSteerSpeed)
+    # belowsteerspeed alertevent는 내지 않도록 한다. 텍스트로 표시만 따로 하여 debug ui 출력을 확보한다.
+    # if ret.vEgo < self.CP.minSteerSpeed:
+    #   events.add(car.CarEvent.EventName.belowSteerSpeed)
     if self.CP.enableGasInterceptor:
       if self.CS.adaptive_Cruise and ret.brakePressed:
+        events.add(EventName.pedalPressed)
         self.CS.adaptive_Cruise = False
         self.CS.enable_lkas = False
-        events.add(EventName.pedalPressed)
+
 
     # handle button presses
     if self.CP.enableGasInterceptor:
@@ -200,12 +203,13 @@ class CarInterface(CarInterfaceBase):
             events.add(EventName.buttonEnable) #어느 이벤트가 먼저인지 확인
             break
       else :#lat engage
-        for b in ret.buttonEvents:
-          if not self.CS.adaptive_Cruise and (b.type == ButtonType.altButton3 and b.pressed) : #and self.CS.adaptive_Cruise
-            self.CS.adaptive_Cruise = False
-            self.CS.enable_lkas = False
-            events.add(EventName.buttonEnable)
-            break
+        self.CS.adaptive_Cruise = False
+        self.CS.enable_lkas = True
+        # for b in ret.buttonEvents:
+        #   if not self.CS.adaptive_Cruise and (b.type == ButtonType.altButton3 and b.pressed) : #and self.CS.adaptive_Cruise
+        #     self.CS.adaptive_Cruise = False
+        #     self.CS.enable_lkas = False
+        #     break
 
     else :
       if self.CS.main_on: #wihtout pedal case

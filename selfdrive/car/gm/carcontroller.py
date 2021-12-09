@@ -37,6 +37,7 @@ class CarController():
     self.packer_pt = CANPacker(DBC[CP.carFingerprint]['pt'])
     #self.packer_obj = CANPacker(DBC[CP.carFingerprint]['radar'])
     #self.packer_ch = CANPacker(DBC[CP.carFingerprint]['chassis'])
+    self.lka_steering_cmd_counter_last = -1
 
   def update(self, enabled, CS, frame, actuators,
              hud_v_cruise, hud_show_lanes, hud_show_car, hud_alert):
@@ -47,8 +48,14 @@ class CarController():
     can_sends = []
 
     # STEER
-    lkas_enabled = enabled and not (CS.out.steerWarning or CS.out.steerError) and CS.out.vEgo > P.MIN_STEER_SPEED
-    if (frame % P.STEER_STEP) == 0:
+
+    # Steering (50Hz)
+    # Avoid GM EPS faults when transmitting messages too close together: skip this transmit if we just received the
+    # next Panda loopback confirmation in the current CS frame.
+    if CS.lka_steering_cmd_counter != self.lka_steering_cmd_counter_last:
+      self.lka_steering_cmd_counter_last = CS.lka_steering_cmd_counter
+    elif (frame % P.STEER_STEP) == 0:
+      lkas_enabled = enabled and not (CS.out.steerWarning or CS.out.steerError) and CS.out.vEgo > P.MIN_STEER_SPEED
       if lkas_enabled:
         new_steer = int(round(actuators.steer * P.STEER_MAX))
         apply_steer = apply_std_steer_torque_limits(new_steer, self.apply_steer_last, CS.out.steeringTorque, P)
@@ -57,7 +64,9 @@ class CarController():
         apply_steer = 0
 
       self.apply_steer_last = apply_steer
-      idx = (frame // P.STEER_STEP) % 4
+      # GM EPS faults on any gap in received message counters. To handle transient OP/Panda safety sync issues at the
+      # moment of disengaging, increment the counter based on the last message known to pass Panda safety checks.
+      idx = (CS.lka_steering_cmd_counter + 1) % 4
 
       can_sends.append(gmcan.create_steering_control(self.packer_pt, CanBus.POWERTRAIN, apply_steer, idx, lkas_enabled))
 
@@ -95,7 +104,7 @@ class CarController():
     # alarming orange icon when approaching torque limit.
     # If not sent again, LKA icon disappears in about 5 seconds.
     # Conveniently, sending camera message periodically also works as a keepalive.
-    lka_active = lkas_enabled == 1
+    lka_active = CS.lkas_status == 1
     lka_critical = lka_active and abs(actuators.steer) > 0.9
     lka_icon_status = (lka_active, lka_critical)
     if frame % P.CAMERA_KEEPALIVE_STEP == 0 or lka_icon_status != self.lka_icon_status_last:

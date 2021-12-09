@@ -174,6 +174,7 @@ struct CarState {
   # cruise state
   cruiseState @10 :CruiseState;
   adaptiveCruise @38 :Bool;
+  mainOn @42 :Bool;
 
   # gear
   gearShifter @14 :GearShifter;
