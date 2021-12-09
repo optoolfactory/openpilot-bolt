@@ -211,6 +211,13 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"Offroad_UpdateFailed", CLEAR_ON_MANAGER_START},
     {"AutoLaneChangeEnabled", PERSISTENT},
     {"PrebuiltEnabled", PERSISTENT},
+
+    //ui param things
+    {"ShowDebugUI", PERSISTENT},
+    {"ShowCpuTempUI", PERSISTENT},
+    {"ShowBattLevelUI", PERSISTENT},
+
+
 };
 
 } // namespace

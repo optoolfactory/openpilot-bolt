@@ -330,6 +330,8 @@ QWidget * community_panel(QWidget * parent) {
                                             "../assets/offroad/icon_checkmark.png"
                                             ));
 
+
+
 //  toggles_list->addWidget(horizontal_line());
 //  toggles_list->addWidget(new LQRSelection());
 //  toggles_list->addWidget(horizontal_line());
@@ -339,6 +341,44 @@ QWidget * community_panel(QWidget * parent) {
   widget->setLayout(toggles_list);
   return widget;
 }
+
+
+
+QWidget * ui_panel(QWidget * parent) {
+  QWidget *w = new QWidget(parent);
+  QVBoxLayout *toggles_list = new QVBoxLayout(w);
+  toggles_list->setSpacing(30);
+
+
+  toggles_list->addWidget(new ParamControl("ShowDebugUI",
+                                            "Show debug UI",
+                                            "페달 관련 디버깅 정보 표시",
+                                            "../assets/offroad/icon_checkmark.png"
+                                            ));
+
+  toggles_list->addWidget(new ParamControl("ShowCpuTempUI",
+                                            "Show CPU Temp UI",
+                                            "좌측열에 CPU 온도 표시",
+                                            "../assets/offroad/icon_checkmark.png"
+                                            ));
+#if defined(QCOM) || defined(QCOM2)
+  toggles_list->addWidget(new ParamControl("ShowBattLevelUI",
+                                            "Show Battery Level UI",
+                                            "좌측열에 배터리 잔량 표시",
+                                            "../assets/offroad/icon_checkmark.png"
+                                            ));
+#endif
+
+//  toggles_list->addWidget(horizontal_line());
+//  toggles_list->addWidget(new LQRSelection());
+//  toggles_list->addWidget(horizontal_line());
+//  toggles_list->addWidget(new INDISelection());
+
+  QWidget *widget = new QWidget;
+  widget->setLayout(toggles_list);
+  return widget;
+}
+
 
 
 
@@ -386,6 +426,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     {"토글메뉴", new TogglesPanel(this)},
     {"개발자", new SoftwarePanel(this)},
     {"커뮤니티", community_panel(this)},
+    {"UI", ui_panel(this)},
   };
 
 #ifdef ENABLE_MAPS

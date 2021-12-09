@@ -40,6 +40,11 @@ def manager_init():
     ("AutoLaneChangeEnabled", "0"),
     ("PrebuiltEnabled", "0"),
 
+    #UI things
+    ("ShowDebugUI", "0"),
+    ("ShowCpuTempUI", "0"),
+    ("ShowBattLevelUI", "0"),
+
     #Lateral Control Selection
     #("INDI_Selected", "0"),
     #("LQR_Selected", "1"),

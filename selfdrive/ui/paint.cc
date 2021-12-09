@@ -154,7 +154,7 @@ static void ui_draw_world(UIState *s) {
 static void ui_draw_latlong(UIState *s) {
   //sm["carState"].getCarState().getBrakeLights();
   auto carState = (*s->sm)["carState"].getCarState();
-  auto lkasEnabled = carState.getLkasEnable();
+  auto lkasEnabled = carState.getMainOn();
   auto adaptiveCruise = carState.getAdaptiveCruise();
 
   int w = 160;
@@ -168,10 +168,10 @@ static void ui_draw_latlong(UIState *s) {
   if (lkasEnabled) {
 //    ui_draw_image(s, {x-w, y, w, h}, "lat_img", 1.f);
 
-    const int image_circle_size = 96;
+    const int image_circle_size = 80;
 //    const int brake_x = brake_size + (bdr_s * 2) + 255;
 //    const int brake_y = s->fb_h - footer_h / 2;
-    ui_draw_circle_image(s, x-w, y+image_circle_size, image_circle_size, "lat_icon_img", 1.f);
+    ui_draw_circle_image(s, x-w, y+image_circle_size+24, image_circle_size, "lat_icon_img", 1.f);
 
   }
   if(adaptiveCruise) {
@@ -207,6 +207,10 @@ static void ui_draw_vision_speed(UIState *s) {
   nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BASELINE);
   ui_draw_text(s, s->fb_w/2, 210, speed_str.c_str(), 96 * 2.5, COLOR_WHITE, "sans-bold");
   ui_draw_text(s, s->fb_w/2, 290, s->scene.is_metric ? "km/h" : "mph", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
+
+  if ( (s->scene.is_metric && speed < 11.5 )  ||   (!s->scene.is_metric && speed < 7.145 ) ) {
+    ui_draw_text(s, s->fb_w/3, 290, "10 km/h 미만 : 조향안함", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
+  } 
 }
 
 static void ui_draw_vision_event(UIState *s) {
@@ -230,7 +234,7 @@ static void ui_draw_vision_face(UIState *s) {
 
 static void ui_draw_vision_brake(UIState *s) {
   const int brake_size = 72;
-  const int brake_x = brake_size + (bdr_s * 2) + 255;
+  const int brake_x = brake_size + (bdr_s * 2) + 160;
   const int brake_y = s->fb_h - footer_h / 2;
   ui_draw_circle_image(s, brake_x, brake_y, brake_size, "brake_img", s->scene.brakeLights);
 }
@@ -355,8 +359,13 @@ static void bb_ui_draw_measures_left(UIState *s, int bb_x, int bb_y, int bb_w ) 
         value_fontSize, label_fontSize, uom_fontSize );
     bb_ry = bb_y + bb_h;
   }
+
+//    if(s->show_debug_ui)
+//  {
+//    bb_ui_draw_debug(s);
+//  }
   // add CPU temperature
-  if (UI_FEATURE_RIGHT_CPU_TEMP) {
+  if (s->show_cpu_temp) {
         char val_str[16];
     char uom_str[6];
     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
@@ -390,7 +399,7 @@ static void bb_ui_draw_measures_left(UIState *s, int bb_x, int bb_y, int bb_w ) 
 
   // add battery level
   #if defined(QCOM) || defined(QCOM2) //preprocessor level cut-off
-  if (Hardware::EON()) {
+  if (s->show_batt_level && Hardware::EON()) {
       float batteryTemp = (*s->sm)["deviceState"].getDeviceState().getAmbientTempC();
       bool batteryless =  batteryTemp < -20;
       if(UI_FEATURE_BATTERY_LEVEL && !batteryless) {
@@ -422,29 +431,6 @@ static void bb_ui_draw_measures_left(UIState *s, int bb_x, int bb_y, int bb_w ) 
     nvgStroke(s->vg);
 }
 
-static void bb_ui_draw_UI(UIState *s) {
-  //const UIScene *scene = &s->scene;
-  const int bb_dml_w = 180;
-  const int bb_dml_x = (bdr_s * 2);
-  const int bb_dml_y = (bdr_s * 1.5) + 220;
-
-  bb_ui_draw_measures_left(s, bb_dml_x, bb_dml_y, bb_dml_w);
-}
-
-static void ui_draw_vision(UIState *s) {
-  const UIScene *scene = &s->scene;
-  // Draw augmented elements
-  if (scene->world_objects_visible) {
-    ui_draw_world(s);
-  }
-  // Set Speed, Current Speed, Status/Events
-  ui_draw_vision_header(s);
-  if ((*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::NONE) {
-    ui_draw_vision_face(s);
-    	ui_draw_vision_brake(s);
-	bb_ui_draw_UI(s);
-  }
-}
 
 static void bb_ui_draw_debug(UIState *s) {
   const UIScene *scene = &s->scene;
@@ -531,6 +517,44 @@ static void bb_ui_draw_debug(UIState *s) {
   snprintf(str, sizeof(str), "Lead: %.1f/%.1f/%.1f", radar_dist, vision_dist, (radar_dist - vision_dist));
   ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");*/
 }
+
+
+
+
+
+static void bb_ui_draw_UI(UIState *s) {
+  //const UIScene *scene = &s->scene;
+  const int bb_dml_w = 180;
+  const int bb_dml_x = (bdr_s * 2);
+  const int bb_dml_y = (bdr_s * 1.5) + 220;
+
+  bb_ui_draw_measures_left(s, bb_dml_x, bb_dml_y, bb_dml_w);
+  if(s->show_debug_ui)
+  {
+    bb_ui_draw_debug(s);
+  }
+
+
+
+}
+
+static void ui_draw_vision(UIState *s) {
+  const UIScene *scene = &s->scene;
+  // Draw augmented elements
+  if (scene->world_objects_visible) {
+    ui_draw_world(s);
+  }
+  // Set Speed, Current Speed, Status/Events
+  ui_draw_vision_header(s);
+  if ((*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::NONE) {
+    ui_draw_vision_face(s);
+    	ui_draw_vision_brake(s);
+	bb_ui_draw_UI(s);
+  }
+}
+
+
+
 
 void ui_draw(UIState *s, int w, int h) {
   // Update intrinsics matrix after possible wide camera toggle change
