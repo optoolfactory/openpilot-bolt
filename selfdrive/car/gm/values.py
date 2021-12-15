@@ -31,7 +31,7 @@ class CarControllerParams():
 
     # Our controller should still keep the 2 second average above
     # -3.5 m/s^2 as per planner limits
-    self.ACCEL_MAX = 2.
+    self.ACCEL_MAX = 2.0
     self.ACCEL_MIN = -4.0
     self.ACCEL_SCALE = 4.0  # max(ACCEL_MAX, -ACCEL_MIN)
 

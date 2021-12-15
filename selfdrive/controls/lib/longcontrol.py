@@ -80,12 +80,12 @@ class LongControl():
       v_target_upper = interp(CP.longitudinalActuatorDelayUpperBound, T_IDXS[:CONTROL_N], long_plan.speeds)
       a_target_upper = 2 * (v_target_upper - long_plan.speeds[0])/CP.longitudinalActuatorDelayUpperBound - long_plan.accels[0]
 
-      v_target = min(v_target_lower, v_target_upper)
+#      v_target = min(v_target_lower, v_target_upper)
       a_target = min(a_target_lower, a_target_upper)
 
       v_target_future = long_plan.speeds[-1]
     else:
-      v_target = 0.0
+#      v_target = 0.0
       v_target_future = 0.0
       a_target = 0.0
 
@@ -94,10 +94,6 @@ class LongControl():
     
     self.pid.neg_limit = accel_limits[0]
     self.pid.pos_limit = accel_limits[1]
-
-    # Actuation limits
-    # gas_max = interp(CS.vEgo, CP.gasMaxBP, CP.gasMaxV)
-    # brake_max = interp(CS.vEgo, CP.brakeMaxBP, CP.brakeMaxV)
 
     # Update state machine
     output_accel = self.last_output_accel
@@ -109,21 +105,21 @@ class LongControl():
       self.reset(CS.vEgo)
       output_accel = 0.
 
-    elif CS.regenPressed:
-      self.reset(CS.vEgo)
-      output_accel = REGEN_THRESHOLD
+#    elif CS.regenPressed:
+#      self.reset(CS.vEgo)
+#      output_accel = REGEN_THRESHOLD
 
-    elif CS.gasPressed:
-      self.reset(CS.vEgo)
-      output_accel = REGEN_THRESHOLD
+#    elif CS.gasPressed:
+#      self.reset(CS.vEgo)
+#      output_accel = REGEN_THRESHOLD
       
 # tracking objects and driving
     elif self.long_control_state == LongCtrlState.pid:
-      self.v_pid = v_target
+      self.v_pid = long_plan.speeds[0]
 
       # Toyota starts braking more when it thinks you want to stop
       # Freeze the integrator so we don't accelerate to compensate, and don't allow positive acceleration
-      prevent_overshoot = not CP.stoppingControl and CS.vEgo < 1.5 and v_target_future < 0.7
+      prevent_overshoot = not CP.stoppingControl and CS.vEgo < 1.5 and v_target_future < 0.7 and v_target_future < self.v_pid
       deadzone = interp(CS.vEgo, CP.longitudinalTuning.deadzoneBP, CP.longitudinalTuning.deadzoneV)
       freeze_integrator = prevent_overshoot
 
@@ -136,7 +132,7 @@ class LongControl():
     elif self.long_control_state == LongCtrlState.stopping:
       # Keep applying brakes until the car is stopped
       if not CS.standstill or output_accel > CP.stopAccel:
-        output_accel -= CP.stoppingDecelRate * DT_CTRL * interp(output_accel, [CP.stopAccel, 0], [1., 0.7])
+        output_accel -= CP.stoppingDecelRate * DT_CTRL
       output_accel = clip(output_accel, accel_limits[0], accel_limits[1])
 
       self.reset(CS.vEgo)

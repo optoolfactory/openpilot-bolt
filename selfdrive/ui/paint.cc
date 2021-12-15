@@ -154,7 +154,8 @@ static void ui_draw_world(UIState *s) {
 static void ui_draw_latlong(UIState *s) {
   //sm["carState"].getCarState().getBrakeLights();
   auto carState = (*s->sm)["carState"].getCarState();
-  auto lkasEnabled = carState.getMainOn();
+  auto mainOn = carState.getMainOn();
+  auto lkasEnabled = carState.getLkasEnable();
   auto adaptiveCruise = carState.getAdaptiveCruise();
 
   int w = 160;
@@ -165,7 +166,7 @@ static void ui_draw_latlong(UIState *s) {
 //  const char* img = activeNDA == 1 ? "img_nda" : "img_hda";
 //  ui_draw_image(s, {x, y, w, h}, img, 1.f);
 
-  if (lkasEnabled) {
+  if ( (adaptiveCruise && lkasEnabled) || mainOn ) {
 //    ui_draw_image(s, {x-w, y, w, h}, "lat_img", 1.f);
 
     const int image_circle_size = 80;
@@ -209,7 +210,7 @@ static void ui_draw_vision_speed(UIState *s) {
   ui_draw_text(s, s->fb_w/2, 290, s->scene.is_metric ? "km/h" : "mph", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
 
   if ( (s->scene.is_metric && speed < 11.5 )  ||   (!s->scene.is_metric && speed < 7.145 ) ) {
-    ui_draw_text(s, s->fb_w/3, 290, "10 km/h 미만 : 조향안함", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
+    ui_draw_text(s, (s->fb_w/3)-15, 290, "10 km/h 조향안함", 36 * 2.0, COLOR_WHITE_ALPHA(200), "sans-regular");
   } 
 }
 

@@ -9,7 +9,7 @@ from opendbc.can.packer import CANPacker
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
-VEL = [50*CV.KPH_TO_MS, 60*CV.KPH_TO_MS, 90*CV.KPH_TO_MS]  # velocities
+VEL = [13.889, 16.667, 25.]  # velocities
 MIN_PEDAL = [0.02, 0.05, 0.1]
 
 def accel_hysteresis(accel, accel_steady):
@@ -27,17 +27,17 @@ class CarController():
   def __init__(self, dbc_name, CP, VM):
     self.start_time = 0.
     self.apply_steer_last = 0
+    self.lka_steering_cmd_counter_last = -1
     self.lka_icon_status_last = (False, False)
     self.steer_rate_limited = False
+    
     self.accel_steady = 0.
-    #self.apply_pedal_last = 0.
-
+    
     self.params = CarControllerParams()
 
     self.packer_pt = CANPacker(DBC[CP.carFingerprint]['pt'])
     #self.packer_obj = CANPacker(DBC[CP.carFingerprint]['radar'])
     #self.packer_ch = CANPacker(DBC[CP.carFingerprint]['chassis'])
-    self.lka_steering_cmd_counter_last = -1
 
   def update(self, enabled, CS, frame, actuators,
              hud_v_cruise, hud_show_lanes, hud_show_car, hud_alert):
@@ -70,24 +70,39 @@ class CarController():
 
       can_sends.append(gmcan.create_steering_control(self.packer_pt, CanBus.POWERTRAIN, apply_steer, idx, lkas_enabled))
 
-    # Pedal/Regen
-    if CS.CP.enableGasInterceptor and (frame % 2) == 0:
+    # Pedal/Regen  
+    if not enabled or not CS.adaptive_Cruise or not CS.CP.enableGasInterceptor:
+      comma_pedal = 0
+    elif CS.adaptive_Cruise:
+      min_pedal_speed = interp(CS.out.vEgo, VEL, MIN_PEDAL)
+      pedal_accel = actuators.accel / 2
+      comma_pedal = clip(pedal_accel, min_pedal_speed, 1.)
+#      comma_pedal = clip(actuators.accel, 0., 1.)
 
-      if not enabled or not CS.adaptive_Cruise:
-        final_pedal = 0
-      elif CS.adaptive_Cruise:
-        min_pedal_speed = interp(CS.out.vEgo, VEL, MIN_PEDAL)
-        pedal_accel = actuators.accel / 4
-        pedal = clip(pedal_accel, min_pedal_speed, 1.)
-        regen = - pedal_accel
-        pedal, self.accel_steady = accel_hysteresis(pedal, self.accel_steady)
-        final_pedal = clip(pedal - regen, 0., 1.)
-        if regen > 0.1:
-          can_sends.append(gmcan.create_regen_paddle_command(self.packer_pt, CanBus.POWERTRAIN))
+      comma_pedal, self.accel_steady = accel_hysteresis(comma_pedal, self.accel_steady)
 
-        idx = (frame // 2) % 4
-        can_sends.append(create_gas_command(self.packer_pt, final_pedal, idx))
-      #self.apply_pedal_last = final_pedal
+      if (frame % 4) == 0:
+        idx = (frame // 4) % 4
+
+        can_sends.append(create_gas_command(self.packer_pt, comma_pedal, idx))
+      
+      
+##페달에 accel, brake 개념 적용시      
+#    if CS.CP.enableGasInterceptor and (frame % 2) == 0:
+#      if not enabled or not CS.adaptive_Cruise:
+#        final_pedal = 0
+#      elif CS.adaptive_Cruise:
+#        min_pedal_speed = interp(CS.out.vEgo, VEL, MIN_PEDAL)
+#        pedal_accel = actuators.accel / 4
+#        pedal = clip(pedal_accel, min_pedal_speed, 1.)
+#        regen = - pedal_accel
+#        pedal, self.accel_steady = accel_hysteresis(pedal, self.accel_steady)
+#        final_pedal = clip(pedal - regen, 0., 1.)
+#        if regen > 0.1:
+#          can_sends.append(gmcan.create_regen_paddle_command(self.packer_pt, CanBus.POWERTRAIN))
+
+#        idx = (frame // 2) % 4
+#        can_sends.append(create_gas_command(self.packer_pt, final_pedal, idx))
 
     # Send dashboard UI commands (ACC status), 25hz
     #if (frame % 4) == 0:
