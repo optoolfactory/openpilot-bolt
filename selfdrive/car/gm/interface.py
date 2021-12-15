@@ -18,11 +18,11 @@ class CarInterface(CarInterfaceBase):
     #return params.ACCEL_MIN, params.ACCEL_MAX
     v_current_kph = current_speed * CV.MS_TO_KPH
     
-#    gas_max_bp = [0., 30., 60., 90.]
-#    gas_max_v = [0.6, 0.8, 0.8, 0.8]
+    gas_max_bp = [0.0, 5.0, 9.0, 35.0] #felger
+    gas_max_v =  [0.4, 0.5, 0.7, 0.7]
     
-    gas_max_bp = [0., 10., 25., 40., 60., 80., 100., 110.]
-    gas_max_v = [0.5, 0.52, 0.55, 0.6, 0.67, 0.67, 0.67, 0.67]
+#    gas_max_bp = [0., 10., 25., 40., 60., 80., 100., 110.]
+#    gas_max_v = [0.5, 0.52, 0.55, 0.6, 0.67, 0.67, 0.67, 0.67]
 
     brake_max_bp = [0, 70., 130.]
     brake_max_v = [-4., -3., -2.1]
@@ -98,11 +98,9 @@ class CarInterface(CarInterfaceBase):
                                                                          tire_stiffness_factor=tire_stiffness_factor)
 
     # longitudinal
-    #ret.longitudinalTuning.kpBP = [0., 30.*CV.KPH_TO_MS, 60.*CV.KPH_TO_MS, 90.*CV.KPH_TO_MS]
-    #ret.longitudinalTuning.kpV = [1.15, 1.1, 0.9, 0.43]
     ret.longitudinalTuning.kpBP = [-5.* CV.KPH_TO_MS, 0., 10.*CV.KPH_TO_MS, 25.*CV.KPH_TO_MS, 40.*CV.KPH_TO_MS, 60.*CV.KPH_TO_MS, 80.*CV.KPH_TO_MS, 100.*CV.KPH_TO_MS, 110.*CV.KPH_TO_MS]
     ret.longitudinalTuning.kpV = [1.5, 1.25, 1.1, 0.81, 0.61, 0.57, 0.54, 0.51, 0.48]
-    
+  
     ret.longitudinalTuning.kiBP = [0., 130. * CV.KPH_TO_MS]
     ret.longitudinalTuning.kiV = [0.075, 0.05]
     
@@ -111,14 +109,13 @@ class CarInterface(CarInterfaceBase):
     
     ret.longitudinalTuning.deadzoneBP = [0., 30.*CV.KPH_TO_MS]
     ret.longitudinalTuning.deadzoneV = [0., 0.10]
-    # ret.longitudinalActuatorDelay = 0.2
-    ret.longitudinalActuatorDelayLowerBound = 0.10
+    ret.longitudinalActuatorDelayLowerBound = 0.15
     ret.longitudinalActuatorDelayUpperBound = 0.15
     
-    ret.startAccel = 0.1
+    ret.startAccel = -0.8
     ret.stopAccel = -2.0
-    ret.startingAccelRate = 1.0
-    ret.stoppingDecelRate = 2.4
+    ret.startingAccelRate = 1.6
+    ret.stoppingDecelRate = 0.8
     ret.vEgoStopping = 0.5
     ret.vEgoStarting = 0.5
     ret.stoppingControl = True
