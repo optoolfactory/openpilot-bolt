@@ -26,6 +26,7 @@ class OnroadHud : public QWidget {
   Q_PROPERTY(bool mainOn MEMBER mainOn NOTIFY valueChanged);
   Q_PROPERTY(bool lkasEnabled MEMBER lkasEnabled NOTIFY valueChanged);
   Q_PROPERTY(bool adaptiveCruise MEMBER adaptiveCruise NOTIFY valueChanged);
+  Q_PROPERTY(bool debugUI MEMBER adaptiveCruise NOTIFY valueChanged);
 
 
 
@@ -56,6 +57,7 @@ private:
   bool mainOn = false;
   bool lkasEnabled = false;
   bool adaptiveCruise = false;
+  bool debugUI = false;
 
 signals:
   void valueChanged();

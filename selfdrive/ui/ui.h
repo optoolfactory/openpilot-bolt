@@ -97,7 +97,7 @@ typedef struct UIScene {
   QPointF lead_vertices[2];
 
   float light_sensor, accel_sensor, gyro_sensor;
-  bool started, ignition, is_metric, longitudinal_control, end_to_end;
+  bool started, ignition, is_metric, longitudinal_control, end_to_end,is_debugview;
   uint64_t started_frame;
 } UIScene;
 
@@ -121,7 +121,7 @@ public:
   bool wide_camera;
 
   bool recording = false;
-  bool show_debug = false;
+
 signals:
   void uiUpdate(const UIState &s);
   void offroadTransition(bool offroad);

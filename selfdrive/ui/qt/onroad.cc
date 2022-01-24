@@ -220,6 +220,7 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("speedUnit", s.scene.is_metric ? "km/h" : "mph");
   setProperty("hideDM", cs.getAlertSize() != cereal::ControlsState::AlertSize::NONE);
   setProperty("status", s.status);
+  setProperty("debugUI", s.scene.is_debugview);
 
   // update engageability and DM icons at 2Hz
   if (sm.frame % (UI_FREQ / 2) == 0) {
@@ -285,6 +286,8 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
              long_img, QColor(0, 0, 0, 70), 1.0);
 
   }
+
+
 
 
 

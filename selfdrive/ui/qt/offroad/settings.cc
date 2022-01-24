@@ -387,6 +387,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     {"Network", network_panel(this)},
     {"Toggles", new TogglesPanel(this)},
     {"Software", new SoftwarePanel(this)},
+    {"Community", new CommunityPanel(this)},
   };
 
 #ifdef ENABLE_MAPS
@@ -458,4 +459,108 @@ void SettingsWindow::hideEvent(QHideEvent *event) {
 #ifdef QCOM
   HardwareEon::close_activities();
 #endif
+}
+CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
+
+  main_layout = new QStackedLayout(this);
+
+  QWidget* homeScreen = new QWidget(this);
+  QVBoxLayout* vlayout = new QVBoxLayout(homeScreen);
+  vlayout->setContentsMargins(0, 20, 0, 20);
+
+//  QString selected = QString::fromStdString(Params().get("SelectedCar"));
+//
+//  QPushButton* selectCarBtn = new QPushButton(selected.length() ? selected : "Select your car");
+//  selectCarBtn->setObjectName("selectCarBtn");
+//  selectCarBtn->setStyleSheet("margin-right: 30px;");
+//  //selectCarBtn->setFixedSize(350, 100);
+//  connect(selectCarBtn, &QPushButton::clicked, [=]() { main_layout->setCurrentWidget(selectCar); });
+//  vlayout->addSpacing(10);
+//  vlayout->addWidget(selectCarBtn, 0, Qt::AlignRight);
+//  vlayout->addSpacing(10);
+
+  homeWidget = new QWidget(this);
+  QVBoxLayout* toggleLayout = new QVBoxLayout(homeWidget);
+  homeWidget->setObjectName("homeWidget");
+
+  ScrollView *scroller = new ScrollView(homeWidget, this);
+  scroller->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  vlayout->addWidget(scroller, 1);
+
+  main_layout->addWidget(homeScreen);
+
+//  selectCar = new SelectCar(this);
+//  connect(selectCar, &SelectCar::backPress, [=]() { main_layout->setCurrentWidget(homeScreen); });
+//  connect(selectCar, &SelectCar::selectedCar, [=]() {
+//
+//      QString selected = QString::fromStdString(Params().get("SelectedCar"));
+//      selectCarBtn->setText(selected.length() ? selected : "Select your car");
+//      main_layout->setCurrentWidget(homeScreen);
+//  });
+//  main_layout->addWidget(selectCar);
+
+  QPalette pal = palette();
+  pal.setColor(QPalette::Background, QColor(0x29, 0x29, 0x29));
+  setAutoFillBackground(true);
+  setPalette(pal);
+
+  setStyleSheet(R"(
+    #back_btn, #selectCarBtn {
+      font-size: 50px;
+      margin: 0px;
+      padding: 20px;
+      border-width: 0;
+      border-radius: 30px;
+      color: #dddddd;
+      background-color: #444444;
+    }
+  )");
+
+  QList<ParamControl*> toggles;
+
+  toggles.append(new ParamControl("UseClusterSpeed",
+                                  "Use Cluster Speed",
+                                  "바퀴 속도 측정값이 아닌 계기판 속도를 읽어들입니다.",
+                                  "../assets/offroad/icon_road.png",
+                                  this));
+
+
+//  toggles.append(new ParamControl("MadModeEnabled",
+//                                  "Enable HKG MAD mode",
+//                                  "Openpilot will engage when turn cruise control on",
+//                                  "../assets/offroad/icon_openpilot.png",
+//                                  this));
+//
+  toggles.append(new ParamControl("AutoLaneChangeEnabled",
+                                  "Enable Auto Lane Change(Nudgeless)",
+                                  "warnings: it is beta, be careful!!",
+                                  "../assets/offroad/icon_road.png",
+                                  this));
+//
+//
+//  toggles.append(new ParamControl("KeepSteeringTurnSignals",
+//                                  "Keep steering while turn signals",
+//                                  "",
+//                                  "../assets/offroad/icon_openpilot.png",
+//                                  this));
+//  toggles.append(new ParamControl("WarningOverSpeedLimit",
+//                                  "Warning when speeding",
+//                                  "Warning when the current speed exceeds the speed limit.",
+//                                  "../assets/offroad/icon_openpilot.png",
+//                                  this));
+
+
+  toggles.append(new ParamControl("ShowDebugUI",
+                                  "Show Debug UI",
+                                  "",
+                                  "../assets/offroad/icon_shell.png",
+                                  this));
+
+
+  for(ParamControl *toggle : toggles) {
+    if(main_layout->count() != 0) {
+      toggleLayout->addWidget(horizontal_line());
+    }
+    toggleLayout->addWidget(toggle);
+  }
 }
