@@ -101,12 +101,7 @@ typedef struct UIScene {
   uint64_t started_frame;
 } UIScene;
 
-class UIState : public QObject {
-  Q_OBJECT
-
-public:
-  UIState(QObject* parent = 0);
-
+typedef struct UIState {
   int fb_w = 0, fb_h = 0;
 
   std::unique_ptr<SubMaster> sm;
@@ -119,7 +114,17 @@ public:
 
   QTransform car_space_transform;
   bool wide_camera;
+} UIState;
 
+
+class QUIState : public QObject {
+  Q_OBJECT
+
+public:
+  QUIState(QObject* parent = 0);
+
+  // TODO: get rid of this, only use signal
+  inline static UIState ui_state = {0};
   bool recording = false;
   bool show_debug = false;
 signals:
@@ -134,7 +139,6 @@ private:
   bool started_prev = true;
 };
 
-UIState *uiState();
 
 // device management class
 
@@ -151,8 +155,13 @@ private:
   bool awake = false;
   int interactive_timeout = 0;
   bool ignition_on = false;
+  int awake_timeout = 0;
+  float accel_prev = 0;
+  float gyro_prev = 0;
   int last_brightness = 0;
   FirstOrderFilter brightness_filter;
+
+  QTimer *timer;
 
   void updateBrightness(const UIState &s);
   void updateWakefulness(const UIState &s);
@@ -165,6 +174,7 @@ signals:
 
 public slots:
   void resetInteractiveTimout();
+  void setAwake(bool on, bool reset);
   void update(const UIState &s);
 };
 

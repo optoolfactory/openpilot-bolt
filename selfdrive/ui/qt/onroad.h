@@ -124,6 +124,9 @@ private:
   std::shared_ptr<QTimer> record_timer;
   QPoint startPos;
 #endif
+signals:
+  void updateStateSignal(const UIState &s);
+  void offroadTransitionSignal(bool offroad);
 
 private slots:
   void offroadTransition(bool offroad);

@@ -30,7 +30,9 @@ const int GM_GAS_INTERCEPTOR_THRESHOLD = 458;  // (610 + 306.25) / 2ratio betwee
 #define MSG_TX_ASCM       0x40A   // TX by OP, for ASCM, To do : We need to check if this message is used for Bolt EV or not.
 #define MSG_TX_ACC        0x370   // TX by OP, for ACC Status, To do : We need to check if this message is used for Bolt EV or not.
 #define MSG_TX_PEDAL      0x200   // TX by OP, for Pedal Interceptor
+
 #define MSG_REGEN         0x189   // TX/RX for Regen Paddle
+#comma default says 0xBD(189) is Regen.
 
 
 const CanMsg GM_TX_MSGS[] = {{MSG_TX_LKA, 0, 4}, {MSG_TX_ALIVE, 0, 7}, {MSG_TX_ASCM, 0, 7}, {MSG_TX_ACC, 0, 6}, {MSG_TX_PEDAL, 0, 6}, {MSG_REGEN, 0, 7}, // pt bus
@@ -82,7 +84,7 @@ static int gm_rx_hook(CANPacket_t *to_push) {
 
     // ACC steering wheel buttons
     if (addr == MSG_RX_BUTTON) {
-      int button = (GET_BYTE(to_push, 5) & 0x70) >> 4;
+      int button = (GET_BYTE(to_push, 5) & 0x70U) >> 4;
       switch (button) {
         case 2:  // resume
         case 3:  // set
@@ -98,7 +100,7 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     if (addr == MSG_RX_BRAKE) {
       // Brake pedal's potentiometer returns near-zero reading
       // even when pedal is not pressed
-      brake_pressed = GET_BYTE(to_push, 1) >= 10;
+      brake_pressed = GET_BYTE(to_push, 1) >= 10U;
     }
 
     // Gas Interceptor Check
@@ -110,13 +112,23 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     }
 
     if ((addr == MSG_RX_GAS) && (!gas_interceptor_detected)) {
-      gas_pressed = GET_BYTE(to_push, 6) != 0;
+      gas_pressed = GET_BYTE(to_push, 6) != 0U;
     }
 
-    // Check if LKA camera are online
+    // exit controls on regen paddle
+    //if (addr == 189) {
+    //  bool regen = GET_BYTE(to_push, 0) & 0x20U;
+    //  if (regen) {
+    //    controls_allowed = 0;
+    //  }
+    //}
+
+    // Check if ASCM or LKA camera are online
     // on powertrain bus.
     // 384 = ASCMLKASteeringCmd
+    // 715 = ASCMGasRegenCmd
     generic_rx_checks(addr == MSG_TX_LKA);
+    //generic_rx_checks(((addr == 384) || (addr == 715)));
   }
   return valid;
 /////////////////슐러는 189에 대해 조사하고있으나 기존 사용하던 판다펌에선 0x189(393) 이 리젠 으로 지정되어있음. 그러나 기존 어차피 gm_rx_hook 에서 패들 검사 안함

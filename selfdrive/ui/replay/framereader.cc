@@ -221,21 +221,19 @@ bool FrameReader::copyBuffers(AVFrame *f, uint8_t *rgb, uint8_t *yuv) {
     libyuv::NV12ToI420(f->data[0], f->linesize[0], f->data[1], f->linesize[1],
                        y, width, u, width / 2, v, width / 2, width, height);
     libyuv::I420ToRGB24(y, width, u, width / 2, v, width / 2,
-                        rgb, aligned_width * 3, width, height);
+                        rgb, width * 3, width, height);
   } else {
     if (yuv) {
       uint8_t *u = yuv + width * height;
       uint8_t *v = u + (width / 2) * (height / 2);
-      libyuv::I420Copy(f->data[0], f->linesize[0],
-                       f->data[1], f->linesize[1],
-                       f->data[2], f->linesize[2],
-                       yuv, width, u, width / 2, v, width / 2,
-                       width, height);
+      memcpy(yuv, f->data[0], width * height);
+      memcpy(u, f->data[1], width / 2 * height / 2);
+      memcpy(v, f->data[2], width / 2 * height / 2);
     }
     libyuv::I420ToRGB24(f->data[0], f->linesize[0],
                         f->data[1], f->linesize[1],
                         f->data[2], f->linesize[2],
-                        rgb, aligned_width * 3, width, height);
+                        rgb, width * 3, width, height);
   }
   return true;
 }
