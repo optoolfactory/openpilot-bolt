@@ -171,7 +171,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   )");
   addItem(power_layout);
   
-  QPushButton *gitpull_btn = new QPushButton("소프트웨어 업1데이트");
+  QPushButton *gitpull_btn = new QPushButton("소프트웨어 업데이트");
   poweroff_btn->setObjectName("gitpull_btn");
   power_layout->addWidget(gitpull_btn);
 
