@@ -174,7 +174,8 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
       QTimer::singleShot(1000, []() { 
        Hardware::reboot(); });
     }
-
+  });
+  
   setStyleSheet(R"(
     #reboot_btn { height: 120px; border-radius: 15px; background-color: #393939; }
     #reboot_btn:pressed { background-color: #4a4a4a; }
