@@ -162,6 +162,14 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   poweroff_btn->setObjectName("poweroff_btn");
   power_layout->addWidget(poweroff_btn);
   QObject::connect(poweroff_btn, &QPushButton::clicked, this, &DevicePanel::poweroff);
+ 
+   setStyleSheet(R"(
+    #reboot_btn { height: 120px; border-radius: 15px; background-color: #393939; }
+    #reboot_btn:pressed { background-color: #4a4a4a; }
+    #poweroff_btn { height: 120px; border-radius: 15px; background-color: #E22C2C; }
+    #poweroff_btn:pressed { background-color: #FF2424; }
+  )");
+  addItem(power_layout);
   
   QPushButton *gitpull_btn = new QPushButton("소프트웨어 업데이트");
   poweroff_btn->setObjectName("gitpull_btn");
@@ -175,14 +183,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
        Hardware::reboot(); });
     }
   });
-  
-  setStyleSheet(R"(
-    #reboot_btn { height: 120px; border-radius: 15px; background-color: #393939; }
-    #reboot_btn:pressed { background-color: #4a4a4a; }
-    #poweroff_btn { height: 120px; border-radius: 15px; background-color: #E22C2C; }
-    #poweroff_btn:pressed { background-color: #FF2424; }
-  )");
-  addItem(power_layout);
+
 }
 
 void DevicePanel::updateCalibDescription() {
