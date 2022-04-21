@@ -7,7 +7,7 @@ name: CreatePullRequest from hkg_dev
 on:
   push:
     branches:
-    - "hkg_dev"  # Support wildcard matching
+    - hkg_dev  # Support wildcard matching
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
