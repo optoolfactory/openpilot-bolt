@@ -44,7 +44,7 @@ jobs:
         uses: peter-evans/create-pull-request@v4
         id: cpr
         with:
-          branch: patches-from-neokii-GHactions
+          branch: hkg_dev
           base: feature/0814
           token: ${{ secrets.PAT }}
           reviewers: jc01rho
