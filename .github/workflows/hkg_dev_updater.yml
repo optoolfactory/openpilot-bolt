@@ -35,3 +35,8 @@ jobs:
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}
           upstream_sync_branch: hkg_dev
           upstream_sync_repo: neokii/npilot
+
+      - name: New commits found
+        if: steps.sync.outputs.has_new_commits == 'true'
+        uses: ./.github/workflows/pr-from-hkg-dev.yml
+
